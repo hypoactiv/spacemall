@@ -1,0 +1,38 @@
+Move all(most?) types into top-level game package
+TODO rethink exported fields/methods on all structs
+
+
+can transaction support ever return?
+
+AddRowMask for ModMap
+
+
+the journey to pathfinding  (getting there!!)
+  - a*-search(src, dst) Path
+      if src.room == dst.room:
+        mode = 1
+      else
+        query cache(src,dst) and return if hit
+        mode = 0
+      if mode == 1, each edge length is 1, nodes are tiles, neighbors and NSEW tiles minus obstructions, hueristic is L1 distance (or something else)
+      if mode == 0, neighbors of src are doors of src.root, edge lengths is len(a*-search(src, door)), huersitic is L1 distance, nodes are src, dst, and intermediate doors
+
+
+entities
+perform some action every tick (step, buy, plan, etc)
+change location a lot, need to be fast to draw
+1000's on screen
+
+
+make thinkheap only sort by time, not X
+
+as events come in, those scheduled for next tick get sorted into work units. those scheduled for later ticks go on heap.
+
+at think time, pull all current tick events off heap and add them to work units.
+
+execute work units, new events will come in
+
+
+tr to make the woerkers a tight loop as much as possible. make a conductor and just passes slices of actions to the workers, which execute them and give some signal when done.
+
+

@@ -1,0 +1,15 @@
+opening title screen needs to instantly get the point across. lots of shit running around. the name "SPACE MALL" spelled out with walls, with dudes runing between the letters. dudes chasing mouse cursor/finger. bright colors and smiles. looks like a dos game. induces lulz instantly or die. "HIDE MENU" option for people that just want to play with the crazy shit in the background
+
+
+purpose:
+  to practice proper design
+  to write high-performance go code
+
+lessons learned:
+  feature implementatin
+  start with external usage, go towards internals
+    this avoids the nasty case where internals have to be thrown away because
+    the use case wasn't right
+  list invariants and implement invariant checking first
+  use invariant checking to guide implementation and find bugs
+  struct field order impacts performance. moving neighbor block pointers above block data gave significant speedup
