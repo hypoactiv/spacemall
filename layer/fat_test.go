@@ -276,7 +276,6 @@ func TestSetRowMask(t *testing.T) {
 	l := NewLayer()
 	l.SetRowMask(rm, 1, nil)
 	for i := 0; i < N; i++ {
-		t.Log(i, l.Get(cursor))
 		actual := l.Get(cursor) == 1
 		if truth[i] != actual {
 			t.Errorf("inconsistent %d", i)
@@ -306,6 +305,34 @@ func TestGetRow(t *testing.T) {
 			}
 		}
 		sc.Step(game.RIGHT)
+	}
+}
+
+func TestObstructed(t *testing.T) {
+	l := NewLayer()
+	defer l.Discard()
+	cursor := game.Location{}
+	l.Set(cursor.JustOffset(10, 0), 1)
+	target := cursor.JustOffset(20, 0)
+	sc := NewStackCursor(cursor)
+	li := sc.Add(l)
+	if sc.Obstructed(li, target) != true {
+		t.Error("should be obstructed")
+	}
+}
+
+func BenchmarkObstructed(b *testing.B) {
+	b.StopTimer()
+	l := NewLayer()
+	defer l.Discard()
+	cursor := game.Location{}
+	l.Set(cursor.JustOffset(10, 0), 1)
+	target := cursor.JustOffset(32, 0)
+	sc := NewStackCursor(cursor)
+	li := sc.Add(l)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		sc.Obstructed(li, target)
 	}
 }
 

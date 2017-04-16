@@ -1,6 +1,9 @@
 package game
 
-import "sort"
+import (
+	"fmt"
+	"sort"
+)
 
 type ThoughtAccumulator struct {
 	NextTick   []Thought
@@ -11,8 +14,11 @@ type ThoughtAccumulator struct {
 func (ta *ThoughtAccumulator) AddThought(th Thought) {
 	if th.At == ta.ticks {
 		ta.NextTick = append(ta.NextTick, th)
-	} else {
+	} else if th.At > ta.ticks {
 		ta.LaterTicks = append(ta.LaterTicks, th)
+	} else {
+		fmt.Println(ta.ticks, th.At)
+		panic("thought scheduled for past")
 	}
 }
 
@@ -30,7 +36,7 @@ func (ta *ThoughtAccumulator) Add(at Ticks, do Actor, bid BlockId) {
 }
 
 func (ta *ThoughtAccumulator) Reset(t Ticks) {
-	ta.ticks = t + 1
+	ta.ticks = t
 	ta.NextTick = ta.NextTick[:0]
 	ta.LaterTicks = ta.LaterTicks[:0]
 }

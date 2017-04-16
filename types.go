@@ -26,6 +26,8 @@ const (
 	RIGHTDOWN
 	LEFTUP
 	LEFTDOWN
+
+	NONE
 )
 
 func (d Direction) Reverse() Direction {
@@ -452,4 +454,30 @@ func Box(a, b Location) <-chan Location {
 		}
 	}()
 	return c
+}
+
+// Returns the direction to move from a towards b along the path of steepest
+// descent of MaxDistance
+func (a Location) Towards(b Location) Direction {
+	dx, dy := a.Distance(b) // b - a
+	switch {
+	case dx > 0 && dy > 0:
+		return RIGHTDOWN
+	case dx == 0 && dy > 0:
+		return DOWN
+	case dx < 0 && dy > 0:
+		return LEFTDOWN
+	case dx > 0 && dy < 0:
+		return RIGHTUP
+	case dx == 0 && dy < 0:
+		return UP
+	case dx < 0 && dy < 0:
+		return LEFTUP
+	case dx > 0 && dy == 0:
+		return RIGHT
+	case dx < 0 && dy == 0:
+		return LEFT
+	default:
+		return NONE
+	}
 }

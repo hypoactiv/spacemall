@@ -390,8 +390,8 @@ func (t *RouteWalkerTool) Click(l game.Location) game.ModMap {
 func (t *RouteWalkerTool) RightClick(l game.Location) game.ModMap {
 	for i := 0; i < 100; i++ {
 		l := l.JustOffset(rand.Intn(20)-10, rand.Intn(20)-10)
-		a := t.a.JustOffset(rand.Intn(20)-10, rand.Intn(20)-10)
-		t.w.Spawn(entity.NewRouteWalker(l, a))
+		//a := t.a.JustOffset(rand.Intn(20)-10, rand.Intn(20)-10)
+		t.w.Spawn(entity.NewRouteWalker(l, t.a))
 	}
 	return nil
 }

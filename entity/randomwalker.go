@@ -1,7 +1,6 @@
 package entity
 
 import (
-	"fmt"
 	"jds/game"
 	"jds/game/layer"
 	"jds/game/world"
@@ -39,7 +38,6 @@ func (t *RandomWalker) Location() game.Location {
 }
 
 func (t *RandomWalker) Spawned(ta *game.ThoughtAccumulator, id world.EntityId, w *world.World, sc *layer.StackCursor) {
-	fmt.Println("RW spawned with id", id)
 	t.w = w
 	t.id = id
 	t.sc = sc

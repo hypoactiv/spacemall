@@ -90,3 +90,13 @@ func BenchmarkRowMaskRandom(b *testing.B) {
 		}
 	}
 }
+
+func TestTowards(t *testing.T) {
+	a := Location{}
+	b := a.JustOffset(rand.Intn(100), rand.Intn(100))
+	t.Log(a, b)
+	for a.MaxDistance(b) > 0 {
+		a = a.JustStep(a.Towards(b))
+		t.Log(a.MaxDistance(b), a)
+	}
+}

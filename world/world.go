@@ -1181,14 +1181,6 @@ func (w *World) Spawn(e Entity) EntityId {
 	sc.Set(0, game.TileId(id))
 	w.nextEntityId++
 	w.Entities[id] = e
-	//e.Spawned(id, w, &sc)
-	/*w.newThoughts <- game.Thought{
-		At: w.ticks + 1,
-		Do: func() (game.Thought, bool) {
-			return e.Spawned(id, w, &sc)
-		},
-		BlockId: l.BlockId,
-	}*/
 	taTmp := game.AllocateTA(w.ticks)
 	taTmp.Add(
 		w.ticks+1,
@@ -1251,7 +1243,7 @@ func (w *World) Now() game.Ticks {
 
 func (w *World) Think() {
 	// increment time
-	w.ticks++
+	//w.ticks++
 	// check thinkHeap for thoughts scheduled for w.ticks and buffer them
 	// thinkHeap sorted by ticks
 	taTmp := game.AllocateTA(w.ticks)
@@ -1262,6 +1254,7 @@ func (w *World) Think() {
 		}
 		taTmp.AddThought(w.thinkHeap.Next())
 	}
+	w.ticks++
 	w.bufferThoughts(taTmp)
 	game.ReleaseTA(taTmp)
 	// Swap buffer and execute work units

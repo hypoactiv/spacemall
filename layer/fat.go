@@ -352,8 +352,9 @@ func (l *Layer) Discard() {
 type StackCursor struct {
 	c game.Location
 	// len(s) == len(b)
-	s []*Layer      // the layers in the stack
-	b []*layerBlock // for each layer in the stack, the block which contains c, or nil if it hasn't been loaded yet
+	s      []*Layer        // the layers in the stack
+	b      []*layerBlock   // for each layer in the stack, the block which contains c, or nil if it hasn't been loaded yet
+	cStack []game.Location // saved cursor position stack
 }
 
 type LayerIndex int
@@ -375,6 +376,32 @@ func MoveStackCursor(from *StackCursor, to *StackCursor) {
 	// copy Layer pointers
 	from.s = from.s[:0]
 	from.s = append(from.s, to.s...)
+}
+
+// Returns true if layer l has a non-zero value on the steepest-descent path
+// from the StackCursor's current position to a.
+func (sc *StackCursor) Obstructed(l LayerIndex, a game.Location) bool {
+	sc.push()
+	for sc.c.MaxDistance(a) > 0 {
+		if sc.Get(l) != 0 {
+			sc.pop()
+			return true
+		}
+		sc.Step(sc.c.Towards(a))
+	}
+	sc.pop()
+	return false
+}
+
+func (sc *StackCursor) push() {
+	sc.cStack = append(sc.cStack, sc.c)
+}
+
+func (sc *StackCursor) pop() {
+	var c game.Location
+	last := len(sc.cStack) - 1
+	c, sc.cStack = sc.cStack[last], sc.cStack[:last]
+	sc.MoveTo(c)
 }
 
 func (sc *StackCursor) FarStep(d game.Direction, distance int) {
