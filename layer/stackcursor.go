@@ -319,6 +319,26 @@ func (sc *StackCursor) Get(l LayerIndex) (v game.TileId) {
 	return
 }
 
+// Set or clear bit at cursor in specified layer. If v is true, the bit is
+// set, otherwise the bit is cleared.
+func (sc *StackCursor) SetBit(l LayerIndex, bit uint, v bool) {
+	if v {
+		// set bit
+		sc.b[l].Set(sc.c, sc.b[l].Get(sc.c)|(1<<bit))
+	} else {
+		// clear bit
+		sc.b[l].Set(sc.c, sc.b[l].Get(sc.c)&^(1<<bit))
+	}
+}
+
+// Get bit at cursor in specified layer
+func (sc *StackCursor) GetBit(l LayerIndex, bit uint) (v bool) {
+	if sc.b[l].Get(sc.c)&(1<<bit) != 0 {
+		v = true
+	}
+	return
+}
+
 // Get value from cursor's neighbor in direction 'd'
 func (sc *StackCursor) DirectedGet(l LayerIndex, d game.Direction) (v game.TileId) {
 	c, dx, dy := sc.c.Step(d)
