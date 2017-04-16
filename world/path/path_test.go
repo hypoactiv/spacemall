@@ -142,3 +142,22 @@ func TestRandomWalkAroundRoom(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkRandomWalkAroundRoom(b *testing.B) {
+	b.StopTimer()
+	w := world.NewWorld(0)
+	N := 64
+	ul := game.Location{}
+	lr := ul.JustOffset(N, N)
+	w.DrawBox(ul, lr)
+	for i := 0; i < 10; i++ {
+		w.SetWall(ul.JustOffset(rand.Intn(N-4)+1, rand.Intn(N-4)+1))
+	}
+	b.StartTimer()
+	for j := 0; j < b.N; j++ {
+		ul = game.Location{}
+		lr = ul.JustOffset(rand.Intn(N-4)+1, rand.Intn(N-4)+1)
+		ul = ul.JustOffset(rand.Intn(N-4)+1, rand.Intn(N-4)+1)
+		NewRoute(w, ul, lr)
+	}
+}
