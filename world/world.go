@@ -81,8 +81,10 @@ type World struct {
 	thinkHeap game.ThinkHeap
 	workUnits [2][]workUnit
 	//
-	ticks       game.Ticks
-	ActionCount int
+	ticks        game.Ticks
+	ActionCount  int
+	customLayers map[string]*layer.Layer
+	clMutex      sync.Mutex
 }
 
 const (
@@ -97,6 +99,17 @@ const (
 	roomIndex
 	entityIndex
 )
+
+func (w *World) CustomLayer(name string) (l *layer.Layer) {
+	w.clMutex.Lock()
+	l = w.customLayers[name]
+	if l == nil {
+		l = layer.NewLayer()
+		w.customLayers[name] = l
+	}
+	w.clMutex.Unlock()
+	return
+}
 
 // buffer a thought for next tick
 func (w *World) bufferThoughts(ta *game.ThoughtAccumulator) {
@@ -167,6 +180,7 @@ func NewWorld(strictFlags int) *World {
 		complexSize:  make(map[*WallTreeNode]int),
 		Doors:        make(map[DoorId]*Door),
 		Entities:     make(map[EntityId]Entity),
+		customLayers: make(map[string]*layer.Layer),
 		strict:       strictFlags,
 		DoorIds:      layer.NewLayer(),
 		EntityIds:    layer.NewLayer(),
