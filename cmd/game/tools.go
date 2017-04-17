@@ -7,7 +7,6 @@ import (
 	"jds/game/patterns"
 	"jds/game/world"
 	"jds/game/world/path"
-	"math/rand"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -46,6 +45,10 @@ var toolset = []struct {
 	Create ToolCreator
 }{
 	{
+		Name:   "RouteWalker",
+		Create: NewRouteWalkerTool,
+	},
+	{
 		Name:   "Point",
 		Create: NewPointTool,
 	},
@@ -72,10 +75,6 @@ var toolset = []struct {
 	{
 		Name:   "RouteDebug",
 		Create: NewRouteDebugTool,
-	},
-	{
-		Name:   "RouteWalker",
-		Create: NewRouteWalkerTool,
 	},
 }
 
@@ -329,7 +328,7 @@ func (t *RouteDebugTool) Preview(l game.Location) (c <-chan game.Location, color
 		defer close(cc)
 		cursor := t.a
 		for _, rs := range r {
-			for j := 0; j < rs.Length; j++ {
+			for j := uint(0); j < rs.Length; j++ {
 				cursor, _, _ = cursor.Step(rs.D)
 				cc <- cursor
 			}
@@ -371,7 +370,7 @@ func (t *RouteWalkerTool) Preview(l game.Location) (c <-chan game.Location, colo
 		defer close(cc)
 		cursor := t.a
 		for _, rs := range r {
-			for j := 0; j < rs.Length; j++ {
+			for j := uint(0); j < rs.Length; j++ {
 				cursor, _, _ = cursor.Step(rs.D)
 				cc <- cursor
 			}
@@ -388,8 +387,8 @@ func (t *RouteWalkerTool) Click(l game.Location) game.ModMap {
 }
 
 func (t *RouteWalkerTool) RightClick(l game.Location) game.ModMap {
-	for i := 0; i < 100; i++ {
-		l := l.JustOffset(rand.Intn(20)-10, rand.Intn(20)-10)
+	for i := 0; i < 1; i++ {
+		//l := l.JustOffset(rand.Intn(20)-10, rand.Intn(20)-10)
 		//a := t.a.JustOffset(rand.Intn(20)-10, rand.Intn(20)-10)
 		t.w.Spawn(entity.NewRouteWalker(l, t.a))
 	}
