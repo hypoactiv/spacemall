@@ -8,7 +8,7 @@ import (
 type ThoughtAccumulator struct {
 	NextTick   []Thought
 	LaterTicks []Thought
-	ticks      Ticks
+	ticks      Ticks // the earliest tick this TA will accept (these get buffered in NextTick)
 }
 
 func (ta *ThoughtAccumulator) AddThought(th Thought) {
@@ -35,6 +35,7 @@ func (ta *ThoughtAccumulator) Add(at Ticks, do Actor, bid BlockId) {
 	})
 }
 
+// t is the earliest Tick this TA will accept
 func (ta *ThoughtAccumulator) Reset(t Ticks) {
 	ta.ticks = t
 	ta.NextTick = ta.NextTick[:0]

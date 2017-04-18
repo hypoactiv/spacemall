@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"jds/game"
 	"jds/game/entity"
+	"jds/game/layer"
 	"jds/game/patterns"
 	"jds/game/world"
 	"jds/game/world/path"
 	"math/rand"
+	"time"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -46,6 +48,10 @@ var toolset = []struct {
 	Create ToolCreator
 }{
 	{
+		Name:   "RouteWalker",
+		Create: NewRouteWalkerTool,
+	},
+	{
 		Name:   "Point",
 		Create: NewPointTool,
 	},
@@ -72,10 +78,6 @@ var toolset = []struct {
 	{
 		Name:   "RouteDebug",
 		Create: NewRouteDebugTool,
-	},
-	{
-		Name:   "RouteWalker",
-		Create: NewRouteWalkerTool,
 	},
 }
 
@@ -329,7 +331,7 @@ func (t *RouteDebugTool) Preview(l game.Location) (c <-chan game.Location, color
 		defer close(cc)
 		cursor := t.a
 		for _, rs := range r {
-			for j := 0; j < rs.Length; j++ {
+			for j := uint(0); j < rs.Length; j++ {
 				cursor, _, _ = cursor.Step(rs.D)
 				cc <- cursor
 			}
@@ -371,7 +373,7 @@ func (t *RouteWalkerTool) Preview(l game.Location) (c <-chan game.Location, colo
 		defer close(cc)
 		cursor := t.a
 		for _, rs := range r {
-			for j := 0; j < rs.Length; j++ {
+			for j := uint(0); j < rs.Length; j++ {
 				cursor, _, _ = cursor.Step(rs.D)
 				cc <- cursor
 			}
@@ -388,10 +390,34 @@ func (t *RouteWalkerTool) Click(l game.Location) game.ModMap {
 }
 
 func (t *RouteWalkerTool) RightClick(l game.Location) game.ModMap {
-	for i := 0; i < 100; i++ {
+	rid := t.w.RoomIds.Get(l)
+	if rid == 0 {
+		return nil
+	}
+	sc := layer.NewStackCursor(l)
+	intentionIndex := sc.Add(t.w.CustomLayer("RouteWalkerIntentions"))
+spawnNext:
+	for i := 0; i < 10; i++ {
 		l := l.JustOffset(rand.Intn(20)-10, rand.Intn(20)-10)
+		sc.MoveTo(l)
 		//a := t.a.JustOffset(rand.Intn(20)-10, rand.Intn(20)-10)
+		if myrid := t.w.RoomIds.Get(l); myrid != rid {
+			continue
+		}
+		if sc.Get(intentionIndex) != 0 {
+			continue
+		}
+		for _, v := range sc.Look(intentionIndex) {
+			if v != 0 {
+				// don't spawn here, collision possible in the future
+				continue spawnNext
+			}
+		}
+		fmt.Println("start spawn", t.w.Now())
 		t.w.Spawn(entity.NewRouteWalker(l, t.a))
+		thinkStart := time.Now()
+		t.w.Think()
+		fmt.Println("think took", time.Since(thinkStart))
 	}
 	return nil
 }

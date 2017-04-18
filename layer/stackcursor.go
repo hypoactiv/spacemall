@@ -113,23 +113,25 @@ func MoveStackCursor(from *StackCursor, to *StackCursor) {
 // Returns true if layer l has a non-zero value on the steepest-descent path
 // from the StackCursor's current position to a.
 func (sc *StackCursor) Obstructed(l LayerIndex, a game.Location) bool {
-	sc.push()
+	sc.Push()
 	for sc.c.MaxDistance(a) > 0 {
 		if sc.Get(l) != 0 {
-			sc.pop()
+			sc.Pop()
 			return true
 		}
 		sc.Step(sc.c.Towards(a))
 	}
-	sc.pop()
+	sc.Pop()
 	return false
 }
 
-func (sc *StackCursor) push() {
+// Push current cursor location onto location stack
+func (sc *StackCursor) Push() {
 	sc.cStack = append(sc.cStack, sc.c)
 }
 
-func (sc *StackCursor) pop() {
+// Pop location off location stack
+func (sc *StackCursor) Pop() {
 	var c game.Location
 	last := len(sc.cStack) - 1
 	c, sc.cStack = sc.cStack[last], sc.cStack[:last]
@@ -316,6 +318,34 @@ func (sc *StackCursor) Get(l LayerIndex) (v game.TileId) {
 		sc.b[l] = b
 	}*/
 	v = b.Get(sc.c)
+	return
+}
+
+// Set or clear bit at cursor in specified layer. If v is true, the bit is
+// set, otherwise the bit is cleared.
+func (sc *StackCursor) SetBit(l LayerIndex, bit uint, v bool) {
+	if v {
+		// set bit
+		sc.b[l].Set(sc.c, sc.b[l].Get(sc.c)|(1<<bit))
+	} else {
+		// clear bit
+		sc.b[l].Set(sc.c, sc.b[l].Get(sc.c)&^(1<<bit))
+	}
+}
+
+// Get bit at cursor in specified layer
+func (sc *StackCursor) GetBit(l LayerIndex, bit uint) (v bool) {
+	if sc.b[l].Get(sc.c)&(1<<bit) != 0 {
+		v = true
+	}
+	return
+}
+
+// Get bit at cursor's neighbot in specified layer
+func (sc *StackCursor) DirectedGetBit(l LayerIndex, d game.Direction, bit uint) (v bool) {
+	if sc.DirectedGet(l, d)&(1<<bit) != 0 {
+		v = true
+	}
 	return
 }
 

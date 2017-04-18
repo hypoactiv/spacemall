@@ -62,3 +62,33 @@ func (m ModMap) Merge(n ModMap) {
 		m[k] = struct{}{}
 	}
 }
+
+type Min struct {
+	min      int
+	argmin   interface{}
+	feasible bool
+}
+
+func (m *Min) Observe(arg interface{}, x int) {
+	if x < m.min || !m.feasible {
+		m.feasible = true
+		m.min = x
+		m.argmin = arg
+	}
+}
+
+func (m *Min) Feasible() bool {
+	return m.feasible
+}
+
+func (m *Min) ImprovedBy(x int) bool {
+	return x < m.min || !m.feasible
+}
+
+func (m *Min) Argmin() interface{} {
+	return m.argmin
+}
+
+func (m *Min) Min() int {
+	return m.min
+}

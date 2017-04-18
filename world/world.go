@@ -1195,7 +1195,7 @@ func (w *World) Spawn(e Entity) EntityId {
 	sc.Set(0, game.TileId(id))
 	w.nextEntityId++
 	w.Entities[id] = e
-	taTmp := game.AllocateTA(w.ticks)
+	taTmp := game.AllocateTA(w.ticks + 1)
 	taTmp.Add(
 		w.ticks+1,
 		&spawnActor{e, id, w, &sc},
@@ -1225,6 +1225,9 @@ func (sa *spawnActor) Act(ta *game.ThoughtAccumulator) {
 //
 // true is returned if and only if the step is taken
 func (w *World) StepEntity(eid EntityId, e Entity, sc *layer.StackCursor, d game.Direction) (game.Location, bool) {
+	if d == game.NONE {
+		return sc.Cursor(), true
+	}
 	// Collide with wall?
 	if sc.DirectedGet(1, d) != 0 {
 		e.HitWall(d)
@@ -1260,7 +1263,7 @@ func (w *World) Think() {
 	//w.ticks++
 	// check thinkHeap for thoughts scheduled for w.ticks and buffer them
 	// thinkHeap sorted by ticks
-	taTmp := game.AllocateTA(w.ticks)
+	taTmp := game.AllocateTA(w.ticks + 1)
 	for w.thinkHeap.Len() > 0 {
 		if w.thinkHeap.PeekTicks() > w.ticks {
 			// no more thoughts for w.ticks
@@ -1268,7 +1271,6 @@ func (w *World) Think() {
 		}
 		taTmp.AddThought(w.thinkHeap.Next())
 	}
-	w.ticks++
 	w.bufferThoughts(taTmp)
 	game.ReleaseTA(taTmp)
 	// Swap buffer and execute work units
@@ -1382,7 +1384,7 @@ processLoop:
 			//fmt.Println(lockStart, exeStart, exeStop, lockStop)
 			resp.Commands <- workerCommand{
 				WU:        wuExe[exeStart:exeStop],
-				TA:        game.AllocateTA(w.ticks),
+				TA:        game.AllocateTA(w.ticks + 1),
 				lockStart: lockStart,
 				lockStop:  lockStop,
 			}
@@ -1411,4 +1413,5 @@ processLoop:
 		v.done = false
 		v.locked = false
 	}
+	w.ticks++
 }

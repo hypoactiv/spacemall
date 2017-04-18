@@ -197,7 +197,7 @@ func (lh *walkerHeap) Swap(i, j int) {
 var nInits, nRelease, nAlloc int
 
 type RouteSegment struct {
-	Length int
+	Length uint
 	D      game.Direction
 }
 
@@ -208,7 +208,7 @@ type routeSegTreeNode struct {
 
 type Route []RouteSegment
 
-func (r Route) Direction(i int) (d game.Direction) {
+func (r Route) Direction(i uint) (d game.Direction) {
 	for _, v := range r {
 		d = v.D
 		if v.Length > i {
@@ -221,7 +221,7 @@ func (r Route) Direction(i int) (d game.Direction) {
 
 func (r Route) Len() (len int) {
 	for _, v := range r {
-		len += v.Length
+		len += int(v.Length)
 	}
 	return
 }
@@ -390,7 +390,7 @@ func NewRoute(w *world.World, start, finish game.Location) (route Route) {
 			nWalkers.SegNode = idx
 			*segNode = routeSegTreeNode{
 				RouteSegment: RouteSegment{
-					Length: jumpDist,
+					Length: uint(jumpDist),
 					D:      d,
 				},
 				P: current.SegNode,
@@ -426,7 +426,7 @@ func NewRoute(w *world.World, start, finish game.Location) (route Route) {
 				nWalkers.W = int(currentgScore) + jumpDist + nWalkers.sc.Cursor().MaxDistance(finish)
 				segNodePool[nWalkers.SegNode] = routeSegTreeNode{
 					RouteSegment: RouteSegment{
-						Length: jumpDist,
+						Length: uint(jumpDist),
 						D:      d,
 					},
 					P: current.SegNode,

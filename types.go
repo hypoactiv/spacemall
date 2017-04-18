@@ -52,6 +52,8 @@ func (d Direction) String() string {
 		return "LeftUp"
 	case LEFTDOWN:
 		return "LeftDown"
+	case NONE:
+		return "None"
 	default:
 		return "Invalid direction"
 	}
@@ -376,6 +378,8 @@ func (l Location) Step(d Direction) (Location, int, int) {
 		return l.LeftUp()
 	case LEFTDOWN:
 		return l.LeftDown()
+	case NONE:
+		return l, 0, 0
 	default:
 		panic("invalid direction")
 	}

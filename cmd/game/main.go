@@ -115,7 +115,7 @@ func NewTileEngine(tileset string, W *world.World, w, h uint) (te *TileEngine, e
 		winh:         h,
 		Overlay:      layer.NewLayer(),
 		overlayColor: sdl.Color{255, 0, 0, 128},
-		Scale:        0.2,
+		Scale:        1,
 	}
 	te.background = te.NewRenderLayer(&renderBackground{te})
 	te.overlay = te.NewRenderLayer(&renderOverlay{te})
@@ -439,7 +439,7 @@ func (te *TileEngine) Interactive() (err interface{}) {
 	}()
 	var last game.Location
 	var toolMode int
-	tool := NewPointTool(te.w)
+	tool := toolset[toolMode].Create(te.w)
 	for !exit {
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch event := event.(type) {
@@ -528,7 +528,7 @@ func FuzzAndDebug() {
 	//logGzip := gzip.NewWriter(logFile)
 	//logEnc := gob.NewEncoder(logGzip)
 	//defer logGzip.Close()
-	w := generate.NewGridWorld(13*20, 7*2) //world.NewWorld(0) //world.STRICT_FSCK_EVERY_OP)
+	w := generate.NewGridWorld(5, 5) //world.NewWorld(0) //world.STRICT_FSCK_EVERY_OP)
 	te, err := NewTileEngine("tileset.png", w, WIDTH, HEIGHT)
 	rand.Seed(int64(time.Now().Nanosecond()))
 	if err != nil {
