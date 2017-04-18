@@ -1,3 +1,6 @@
+// RouteWalkers attempt to move to their destination one tile at a time
+// without colliding with other RouteWalkers
+
 package entity
 
 import (
@@ -8,10 +11,34 @@ import (
 	"math/rand"
 )
 
-const PLAN_LENGTH = 4
-const BITWIDTH = 8
+// Definitions
 
+const PLAN_LENGTH = 2
+
+// A Plan is a list of Directions that this RouteWalker intends to
+// take over the next PLAN_LENGTH ticks. Each Direction is the Plan
+// is a 'step' of that Plan.
+//
+// A Plan is 'viable' if it does not result in a collision with another
+// entity or wall, and each step of the plan moves closer to the route
+// cursor (rc)
+//
+// A step of a Plan is 'viable' if it can be part of a viable plan.
+// that is, a step that does not force a collision and moves closer
+// to rc
+//
+// Once a RouteWalker computes a viable plan, it signals its intentions
+// to other walkers by setting the appropriate bits in the
+// RouteWalkerIntention Layer.
 type Plan [PLAN_LENGTH]game.Direction
+
+// The lowest BITWIDTH bits of the values in the RouteWalkerIntention
+// layer are used to indicate if an entity will be at that tile during
+// tick (now+step)%BITWIDTH where 'step' is the step in that entity's
+// Plan.
+//
+// BITWIDTH must be greater than or equal to PLAN_LENGTH
+const BITWIDTH = 8
 
 type RouteWalker struct {
 	id         world.EntityId
@@ -95,10 +122,6 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 	now := uint(t.w.Now())
 
 	//fmt.Printf("*** RouteWalker Act id:%d tick:%d\n", t.id, now)
-	// a plan is 'feasible' if it does not result in a collision with another
-	// entity or wall, and each step moves closer to the route cursor
-	//
-	// a step of a plan is 'viable' if it can be part of a feasible plan
 	makeplan = func(step uint, plan *Plan, rc game.Location, best int) (waits int, viable bool) {
 		if step >= PLAN_LENGTH {
 			// end of plan.
@@ -126,7 +149,6 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 		almostViable := [8]bool{}
 		for d, rl := range t.sc.Cursor().Neighborhood() {
 			d := game.Direction(d)
-			// move close to rc?
 			if step > 0 && d.Reverse() == plan[step-1] {
 				// don't backtrack
 				continue
@@ -136,12 +158,9 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 				// yes -- not viable
 				continue
 			}
-			// is another entity going to move here?
-			//fmt.Println(intentionLocal)
+			// is another walker going to be at rl during this or next tick?
 			if intentionLocal[d]&(1<<((now+step)%BITWIDTH)) != 0 ||
 				intentionLocal[d]&(1<<((now+step+1)%BITWIDTH)) != 0 {
-				//fmt.Println(intentionLocal)
-				//fmt.Println("direction", d, "would collide", step)
 				// yes -- not viable
 				continue
 			}
