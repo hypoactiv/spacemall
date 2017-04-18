@@ -439,7 +439,7 @@ func (te *TileEngine) Interactive() (err interface{}) {
 	}()
 	var last game.Location
 	var toolMode int
-	tool := NewPointTool(te.w)
+	tool := toolset[toolMode].Create(te.w)
 	for !exit {
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch event := event.(type) {

@@ -1,7 +1,6 @@
 package entity
 
 import (
-	"fmt"
 	"jds/game"
 	"jds/game/layer"
 	"jds/game/world"
@@ -48,25 +47,40 @@ func (t *RouteWalker) Location() game.Location {
 }
 
 func (t *RouteWalker) Spawned(ta *game.ThoughtAccumulator, id world.EntityId, w *world.World, sc *layer.StackCursor) {
+	now := uint(w.Now())
 	t.w = w
 	t.id = id
 	t.sc = sc
 	t.routeLoc = t.l
 	t.routeStep = 0
 	t.route = path.NewRoute(w, t.l, t.dest)
+	//fmt.Printf("spawned id:%d tick:%d loc:%v\n", t.id, now, t.l)
 	for t.routeStep < PLAN_LENGTH+1 && t.routeStep < t.route.Len()-1 {
 		t.routeLoc = t.routeLoc.JustStep(t.route.Direction(uint(t.routeStep)))
 		t.routeStep++
-	}
-	for i := range t.plan {
-		t.plan[i] = game.NONE
 	}
 	t.intentions = t.w.CustomLayer("RouteWalkerIntentions")
 	if t.sc.Add(t.intentions) != intentionIndex {
 		panic("unexpected layer index")
 	}
+	for i := range t.plan {
+		i := uint(i)
+		t.plan[i] = game.NONE
+		if t.sc.GetBit(intentionIndex, (now+i-1)%BITWIDTH) {
+			panic("tried to spawn in another walker's path")
+		}
+		t.sc.SetBit(intentionIndex, (now+i-1)%BITWIDTH, true)
+		//fmt.Println("set", t.id, now+i-1, t.sc.Cursor())
+	}
+	if t.sc.GetBit(intentionIndex, (now+PLAN_LENGTH-1)%BITWIDTH) {
+		panic("tried to spawn in another walker's path")
+	}
+	t.planSet = true
+	t.sc.SetBit(intentionIndex, (now+PLAN_LENGTH-1)%BITWIDTH, true)
+	//fmt.Println("set", t.id, now+PLAN_LENGTH-1, t.sc.Cursor())
 	if t.route.Len() > 0 {
-		ta.Add(t.w.Now()+1, t, t.l.BlockId)
+		//ta.Add(t.w.Now()+1, t, t.l.BlockId)
+		t.Act(ta)
 	}
 }
 
@@ -80,6 +94,7 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 	var makeplan func(uint, *Plan, game.Location, int) (rcDist int, viable bool)
 	now := uint(t.w.Now())
 
+	//fmt.Printf("*** RouteWalker Act id:%d tick:%d\n", t.id, now)
 	// a plan is 'feasible' if it does not result in a collision with another
 	// entity or wall, and each step moves closer to the route cursor
 	//
@@ -94,7 +109,7 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 				}
 			}
 			viable = !t.sc.Obstructed(wallIndex, rc)
-			fmt.Println(plan, waits, viable)
+			//fmt.Println(plan, waits, viable)
 			return
 		}
 		// consider possible moves from t.sc's current location. only consider staying
@@ -122,17 +137,24 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 				continue
 			}
 			// is another entity going to move here?
-			fmt.Println(intentionLocal)
+			//fmt.Println(intentionLocal)
 			if intentionLocal[d]&(1<<((now+step)%BITWIDTH)) != 0 ||
 				intentionLocal[d]&(1<<((now+step+1)%BITWIDTH)) != 0 {
-				fmt.Println(intentionLocal)
-				fmt.Println("direction", d, "would collide", step)
+				//fmt.Println(intentionLocal)
+				//fmt.Println("direction", d, "would collide", step)
 				// yes -- not viable
 				continue
 			}
 			if rl.MaxDistance(rc) >= curDist {
 				// no progress -- not viable
 				if rl.MaxDistance(rc) == curDist {
+					// if there aren't any moves that decrease distance to rc,
+					// then choose one that keeps it the same, so that
+					// we don't just stop and block traffic.
+					// here we remember directions that keep the distance the same
+					// and are otherwise ok
+					//
+					// BUG check for obstructions?
 					almostViable[d] = true
 				}
 				continue
@@ -148,7 +170,7 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 			waits, viable := makeplan(step+1, plan, rc, m.Min())
 			t.sc.Pop()
 			if viable {
-				fmt.Println("observe", d, waits, plan)
+				//fmt.Println("observe", d, waits, plan)
 				m.Observe(*plan, waits)
 			}
 		}
@@ -166,7 +188,7 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 					waits, viable := makeplan(step+1, plan, rc, m.Min())
 					t.sc.Pop()
 					if viable {
-						fmt.Println("observe almost viable", d, waits, plan)
+						//fmt.Println("observe almost viable", d, waits, plan)
 						m.Observe(*plan, waits)
 					}
 				}
@@ -184,7 +206,10 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 			// Unable to find a viable direction. Wait 1 tick and try again
 			plan[step] = game.NONE
 			if t.sc.GetBit(intentionIndex, (now+step+1)%BITWIDTH) {
-				fmt.Println("pushed!")
+				// some other entity wants our tile, but we have no valid move.
+				// unavoidable collision -> avoid this plan
+				//fmt.Println("pushed!")
+				return PLAN_LENGTH, false
 			}
 			return makeplan(step+1, plan, rc, best)
 		}
@@ -193,20 +218,33 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 
 	var tookStep bool
 	// remove intention to follow old plan
+	//fmt.Println("current plan", t.plan)
 	t.sc.Push()
 	for step, d := range t.plan {
 		step := uint(step)
 		//fmt.Println("unset", t.sc.Cursor(), (now+step-1)%BITWIDTH)
 		if t.planSet && !t.sc.GetBit(intentionIndex, (now+step-1)%BITWIDTH) {
+			//fmt.Println(now+step-1, t.plan, t.dest, t.sc.Cursor())
 			panic("intention changed unexpectedly")
 		}
 		t.sc.SetBit(intentionIndex, (now+step-1)%BITWIDTH, false)
-		fmt.Println("clear", t.sc.Cursor())
+		//fmt.Println("unset", t.id, now+step-1, t.sc.Cursor())
+		//fmt.Println("clear", t.sc.Cursor())
 		t.sc.Step(d)
+		if t.planSet && d != game.NONE && !t.sc.GetBit(intentionIndex, (now+step-1)%BITWIDTH) {
+			//fmt.Println(now+step-1, t.plan, t.dest, t.sc.Cursor())
+			panic("intention changed unexpectedly")
+		}
 		t.sc.SetBit(intentionIndex, (now+step-1)%BITWIDTH, false)
+		//fmt.Println("unset", t.id, now+step-1, t.sc.Cursor())
 	}
-	fmt.Println("clear", t.sc.Cursor())
+	//fmt.Println("clear", t.sc.Cursor())
+	if t.planSet && !t.sc.GetBit(intentionIndex, (now+PLAN_LENGTH-1)%BITWIDTH) {
+		//fmt.Println(PLAN_LENGTH, t.plan, t.dest, t.sc.Cursor())
+		panic("intention changed unexpectedly")
+	}
 	t.sc.SetBit(intentionIndex, (now+PLAN_LENGTH-1)%BITWIDTH, false)
+	//fmt.Println("unset", t.id, now+PLAN_LENGTH-1, t.sc.Cursor())
 	t.sc.Pop()
 	t.planSet = false
 	// TODO remove sanity check
@@ -217,7 +255,7 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 	// step according to plan
 	t.l, tookStep = t.w.StepEntity(t.id, t, t.sc, t.plan[0])
 	if !tookStep {
-		fmt.Println("no step")
+		//fmt.Println("no step")
 	}
 	// advance route cursor
 	for i := 0; i < 2; i++ {
@@ -232,23 +270,30 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 		}
 	}
 	// make a new plan
-	waits, _ := makeplan(0, &t.plan, t.routeLoc, t.route.Len())
+	_, viable := makeplan(0, &t.plan, t.routeLoc, t.route.Len())
+	if !viable {
+		panic("no viable path!")
+	}
 	// TODO remove sanity check
 	t.sc.Push()
 	for step, d := range t.plan {
 		step := uint(step)
 		if t.sc.GetBit(intentionIndex, (now+step)%BITWIDTH) {
-			fmt.Println(step, t.plan)
+			//fmt.Println(step, t.plan)
 			panic("makeplan returned path with collision")
 		}
 		t.sc.Step(d)
 		if t.sc.GetBit(intentionIndex, (now+step)%BITWIDTH) {
-			fmt.Println(step, t.plan, t.dest, t.sc.Cursor())
+			//fmt.Println(step, t.plan, t.dest, t.sc.Cursor())
 			panic("makeplan returned path with collision")
 		}
 	}
+	if t.sc.GetBit(intentionIndex, (now+PLAN_LENGTH)%BITWIDTH) {
+		//fmt.Println(step, t.plan, t.dest, t.sc.Cursor())
+		panic("makeplan returned path with collision")
+	}
 	t.sc.Pop()
-	fmt.Printf("made a plan with %d waits %v\n", waits, t.plan)
+	//fmt.Printf("made a plan with %d waits %v\n", waits, t.plan)
 	// signal our intention to follow this plan
 	// BUG intention layer needs to be used to ensure both current and next
 	// positions are claimed, not just destination
@@ -271,27 +316,30 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 			panic("intention bit already set")
 		}
 		t.sc.SetBit(intentionIndex, (now+step)%BITWIDTH, true)
+		//fmt.Println("set", t.id, now+step, t.sc.Cursor())
 		t.sc.Step(d)
 		if d != game.NONE && t.sc.GetBit(intentionIndex, (now+step)%BITWIDTH) {
-			fmt.Println(step)
+			//fmt.Println(step)
 			panic("intention bit already set")
 		}
 		t.sc.SetBit(intentionIndex, (now+step)%BITWIDTH, true)
+		//fmt.Println("set", t.id, now+step, t.sc.Cursor())
 	}
 	if t.sc.GetBit(intentionIndex, (now+PLAN_LENGTH)%BITWIDTH) {
 		panic("intention bit already set")
 	}
 	t.sc.SetBit(intentionIndex, (now+PLAN_LENGTH)%BITWIDTH, true)
+	//fmt.Println("set", t.id, now+PLAN_LENGTH, t.sc.Cursor())
 	t.sc.Pop()
 	t.planSet = true
-	fmt.Println("local intentions", t.sc.Get(intentionIndex))
-	fmt.Println("nearby intentions", t.sc.Look(intentionIndex))
+	//fmt.Println("local intentions", t.sc.Get(intentionIndex))
+	//fmt.Println("nearby intentions", t.sc.Look(intentionIndex))
 	ta.Add(game.Ticks(now+1), t, t.l.BlockId)
 	// TODO remove sanity checks
 	if t.l != t.sc.Cursor() || !t.sc.GetBit(intentionIndex, (now)%BITWIDTH) {
 		panic("asdf")
 	}
 	if t.l == t.dest {
-		fmt.Println("GOAL REACHED")
+		//fmt.Println("GOAL REACHED")
 	}
 }
