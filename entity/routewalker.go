@@ -194,6 +194,10 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 			if viable {
 				//fmt.Println("observe", d, waits, plan)
 				m.Observe(*plan, waits)
+				if waits == 0 {
+					// no better plan possible
+					break
+				}
 			}
 		}
 		if !m.Feasible() {
@@ -230,7 +234,7 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 				// some other entity wants our tile, but we have no valid move.
 				// unavoidable collision -> avoid this plan
 				if step == 0 {
-					fmt.Println("pushed! panic direction", pushedDirection)
+					fmt.Println("pushed! panic direction", pushedDirection, t.id)
 				}
 				plan[step] = pushedDirection
 				waits, viable := makeplan(step+1, plan, rc, best)
