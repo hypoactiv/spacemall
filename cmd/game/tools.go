@@ -402,14 +402,17 @@ spawnNext:
 		sc.MoveTo(l)
 		//a := t.a.JustOffset(rand.Intn(20)-10, rand.Intn(20)-10)
 		if myrid := t.w.RoomIds.Get(l); myrid != rid {
+			i--
 			continue
 		}
 		if sc.Get(intentionIndex) != 0 {
+			i--
 			continue
 		}
 		for _, v := range sc.Look(intentionIndex) {
 			if v != 0 {
 				// don't spawn here, collision possible in the future
+				i--
 				continue spawnNext
 			}
 		}
