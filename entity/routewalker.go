@@ -4,6 +4,7 @@
 package entity
 
 import (
+	"fmt"
 	"jds/game"
 	"jds/game/layer"
 	"jds/game/world"
@@ -41,18 +42,18 @@ type Plan [PLAN_LENGTH]game.Direction
 const BITWIDTH = 8
 
 type RouteWalker struct {
-	id         world.EntityId
-	w          *world.World
-	l          game.Location
-	sc         *layer.StackCursor
-	route      path.Route
-	dest       game.Location
-	speed      float64
-	intentions *layer.Layer
-	routeLoc   game.Location
-	routeStep  int
-	plan       Plan
-	planSet    bool // plan has been set in intention layer
+	id          world.EntityId
+	w           *world.World
+	l           game.Location
+	sc          *layer.StackCursor
+	route       path.Route
+	dest        game.Location
+	speed       float64
+	intentions  *layer.Layer
+	routeCursor game.Location
+	routeStep   int
+	plan        Plan
+	planSet     bool // plan has been set in intention layer
 }
 
 const (
@@ -78,12 +79,12 @@ func (t *RouteWalker) Spawned(ta *game.ThoughtAccumulator, id world.EntityId, w 
 	t.w = w
 	t.id = id
 	t.sc = sc
-	t.routeLoc = t.l
+	t.routeCursor = t.l
 	t.routeStep = 0
 	t.route = path.NewRoute(w, t.l, t.dest)
 	//fmt.Printf("spawned id:%d tick:%d loc:%v\n", t.id, now, t.l)
 	for t.routeStep < PLAN_LENGTH+1 && t.routeStep < t.route.Len()-1 {
-		t.routeLoc = t.routeLoc.JustStep(t.route.Direction(uint(t.routeStep)))
+		t.routeCursor = t.routeCursor.JustStep(t.route.Direction(uint(t.routeStep)))
 		t.routeStep++
 	}
 	t.intentions = t.w.CustomLayer("RouteWalkerIntentions")
@@ -139,6 +140,7 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 		// still, moves that move closer to the route cursor, and moves that don't
 		// collide with other entities or walls.
 		var m game.Min
+		pushedDirection := game.Direction(game.NONE) // EXP take this move if we're going to be pushed
 		curDist := t.sc.Cursor().MaxDistance(rc)
 		//plan[step] = game.NONE
 		//rcDist, viable = makeplan(step+1, plan, rc, best)
@@ -149,10 +151,6 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 		almostViable := [8]bool{}
 		for d, rl := range t.sc.Cursor().Neighborhood() {
 			d := game.Direction(d)
-			if step > 0 && d.Reverse() == plan[step-1] {
-				// don't backtrack
-				continue
-			}
 			// is there a wall here?
 			if wallLocal[d] != 0 {
 				// yes -- not viable
@@ -162,6 +160,11 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 			if intentionLocal[d]&(1<<((now+step)%BITWIDTH)) != 0 ||
 				intentionLocal[d]&(1<<((now+step+1)%BITWIDTH)) != 0 {
 				// yes -- not viable
+				continue
+			}
+			pushedDirection = d // take this direction if we must dodge an entity trying to move to our tile
+			if step > 0 && d.Reverse() == plan[step-1] {
+				// don't backtrack
 				continue
 			}
 			if rl.MaxDistance(rc) >= curDist {
@@ -223,14 +226,20 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 			//makeplan(step+1, plan, rc, waits)
 		} else {
 			// Unable to find a viable direction. Wait 1 tick and try again
-			plan[step] = game.NONE
 			if t.sc.GetBit(intentionIndex, (now+step+1)%BITWIDTH) {
 				// some other entity wants our tile, but we have no valid move.
 				// unavoidable collision -> avoid this plan
-				//fmt.Println("pushed!")
-				return PLAN_LENGTH, false
+				if step == 0 {
+					fmt.Println("pushed! panic direction", pushedDirection)
+				}
+				plan[step] = pushedDirection
+				waits, viable := makeplan(step+1, plan, rc, best)
+				return waits + 2, viable // getting pushed is worth 2 waits since we lose progress to rc
+			} else {
+				// no other entit wants our tile, so wait here until congestion clears out
+				plan[step] = game.NONE
+				return makeplan(step+1, plan, rc, best)
 			}
-			return makeplan(step+1, plan, rc, best)
 		}
 		return
 	}
@@ -279,9 +288,9 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 	// advance route cursor
 	for i := 0; i < 2; i++ {
 		if t.routeStep < t.route.Len() {
-			newrc := t.routeLoc.JustStep(t.route.Direction(uint(t.routeStep)))
+			newrc := t.routeCursor.JustStep(t.route.Direction(uint(t.routeStep)))
 			if !t.sc.Obstructed(wallIndex, newrc) {
-				t.routeLoc = newrc
+				t.routeCursor = newrc
 				t.routeStep++
 			} else {
 				break
@@ -289,7 +298,7 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 		}
 	}
 	// make a new plan
-	_, viable := makeplan(0, &t.plan, t.routeLoc, t.route.Len())
+	_, viable := makeplan(0, &t.plan, t.routeCursor, t.route.Len())
 	if !viable {
 		panic("no viable path!")
 	}
