@@ -162,9 +162,16 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 				// yes -- not viable
 				continue
 			}
+			t.sc.Push()
+			t.sc.Step(d)
 			pushedDirection = d // take this direction if we must dodge an entity trying to move to our tile
+			if t.sc.Obstructed(wallIndex, rc) {
+				t.sc.Pop()
+				continue
+			}
 			if step > 0 && d.Reverse() == plan[step-1] {
 				// don't backtrack
+				t.sc.Pop()
 				continue
 			}
 			if rl.MaxDistance(rc) >= curDist {
@@ -179,16 +186,11 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 					// BUG check for obstructions?
 					almostViable[d] = true
 				}
+				t.sc.Pop()
 				continue
 			}
 			// d is a viable direction to move in
 			plan[step] = d
-			t.sc.Push()
-			t.sc.Step(d)
-			if t.sc.Obstructed(wallIndex, rc) {
-				t.sc.Pop()
-				continue
-			}
 			waits, viable := makeplan(step+1, plan, rc, m.Min())
 			t.sc.Pop()
 			if viable {
@@ -287,6 +289,7 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 	// step according to plan
 	t.l, tookStep = t.w.StepEntity(t.id, t, t.sc, t.plan[0])
 	if !tookStep {
+		panic("collided!")
 		//fmt.Println("no step")
 	}
 	// advance route cursor
@@ -304,6 +307,7 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 	// make a new plan
 	_, viable := makeplan(0, &t.plan, t.routeCursor, t.route.Len())
 	if !viable {
+		// TODO there is, or will be, some forced collision. what should be done?
 		panic("no viable path!")
 	}
 	// TODO remove sanity check
