@@ -35,4 +35,4 @@ execute work units, new events will come in
 
 tr to make the woerkers a tight loop as much as possible. make a conductor and just passes slices of actions to the workers, which execute them and give some signal when done.
 
-
+if we can't see the next tile in the route, walk around the current tile while keeping same MaxDist until next tile becomes visible
