@@ -43,11 +43,12 @@ func (l LayerError) String() string {
 	return l.Message
 }
 
+// A workUnit is a set of Actions to be performed in a single World column
 type workUnit struct {
-	Actors []game.Actor
-	X      int
-	locked bool
-	done   bool
+	Actions []game.Action
+	X       int
+	locked  bool
+	done    bool
 }
 
 // There are 2 workUnit buffers in World. One for this tick (WU_EXECUTE) and
@@ -135,7 +136,7 @@ func (w *World) bufferThoughts(ta *game.ThoughtAccumulator) {
 		}
 		// Append this Thought's Action to the workUnit for this column
 		for _, th := range t {
-			w.workUnits[WU_BUFFER][i].Actors = append(w.workUnits[WU_BUFFER][i].Actors, th.Do)
+			w.workUnits[WU_BUFFER][i].Actions = append(w.workUnits[WU_BUFFER][i].Actions, th.Do)
 		}
 	}
 	// put thoughts for later ticks on thinkHeap
@@ -1195,10 +1196,12 @@ func (w *World) Spawn(e Entity) EntityId {
 	sc.Set(0, game.TileId(id))
 	w.nextEntityId++
 	w.Entities[id] = e
-	taTmp := game.AllocateTA(w.ticks + 1)
+	taTmp := game.AllocateTA(w.ticks + 1) // TODO we should accept a TA as an argument instead of making one
 	taTmp.Add(
 		w.ticks+1,
-		&spawnActor{e, id, w, &sc},
+		func(ta *game.ThoughtAccumulator) {
+			e.Spawned(ta, id, w, &sc)
+		},
 		l.BlockId,
 	)
 	w.bufferThoughts(taTmp)
@@ -1259,8 +1262,6 @@ func (w *World) Now() game.Ticks {
 }*/
 
 func (w *World) Think() {
-	// increment time
-	//w.ticks++
 	// check thinkHeap for thoughts scheduled for w.ticks and buffer them
 	// thinkHeap sorted by ticks
 	taTmp := game.AllocateTA(w.ticks + 1)
@@ -1298,8 +1299,8 @@ func (w *World) Think() {
 		}
 		for c := range cc {
 			for _, wu := range c.WU {
-				for _, actor := range wu.Actors {
-					actor.Act(c.TA)
+				for _, action := range wu.Actions {
+					action(c.TA)
 				}
 			}
 			for i := c.lockStart; i < c.lockStop; i++ {
@@ -1340,7 +1341,7 @@ processLoop:
 			if wuExe[k].done == true {
 				continue
 			}
-			if len(wuExe[k].Actors) == 0 {
+			if len(wuExe[k].Actions) == 0 {
 				wuExe[k].done = true
 				continue
 			}
@@ -1353,7 +1354,7 @@ processLoop:
 				continue
 			}
 			// column 'k' can be processed. lock it and its neighbors
-			actionCount := len(wuExe[k].Actors)
+			actionCount := len(wuExe[k].Actions)
 			exeStart := k
 			lockStart := k
 			lockStop := k
@@ -1363,11 +1364,11 @@ processLoop:
 			// grab more columns to the right if possible
 			for k < wuLen-2 && wuExe[k+1].done == false && wuExe[k+2].locked == false && actionCount < 2000 {
 				k++
-				actionCount += len(wuExe[k].Actors)
+				actionCount += len(wuExe[k].Actions)
 			}
 			exeStop := k + 1
 			if exeStop == wuLen-1 && wuExe[wuLen-1].done == false {
-				actionCount += len(wuExe[wuLen-1].Actors)
+				actionCount += len(wuExe[wuLen-1].Actions)
 				exeStop = wuLen
 			}
 			lockStop = exeStop + 1
@@ -1409,7 +1410,7 @@ processLoop:
 	// clear WU_EXECUTE for later reuse as WU_BUFFER
 	for k := range w.workUnits[WU_EXECUTE] {
 		v := &w.workUnits[WU_EXECUTE][k]
-		v.Actors = v.Actors[:0]
+		v.Actions = v.Actions[:0]
 		v.done = false
 		v.locked = false
 	}

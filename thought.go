@@ -27,7 +27,7 @@ func (ta *ThoughtAccumulator) ExDirectWriteNextTick() *Thought {
 	return &ta.NextTick[len(ta.NextTick)-1]
 }
 
-func (ta *ThoughtAccumulator) Add(at Ticks, do Actor, bid BlockId) {
+func (ta *ThoughtAccumulator) Add(at Ticks, do Action, bid BlockId) {
 	ta.AddThought(Thought{
 		At:      at,
 		Do:      do,

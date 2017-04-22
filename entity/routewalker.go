@@ -370,7 +370,7 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 	t.planSet = true
 	//fmt.Println("local intentions", t.sc.Get(intentionIndex))
 	//fmt.Println("nearby intentions", t.sc.Look(intentionIndex))
-	ta.Add(game.Ticks(now+1), t, t.l.BlockId)
+	ta.Add(game.Ticks(now+1), t.Act, t.l.BlockId)
 	// TODO remove sanity checks
 	if t.l != t.sc.Cursor() || !t.sc.GetBit(intentionIndex, (now)%BITWIDTH) {
 		panic("asdf")

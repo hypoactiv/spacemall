@@ -4,13 +4,11 @@ import (
 	"container/heap"
 )
 
-type Actor interface {
-	Act(*ThoughtAccumulator)
-}
+type Action func(*ThoughtAccumulator)
 
 type Thought struct {
 	At      Ticks
-	Do      Actor
+	Do      Action
 	BlockId BlockId
 }
 

@@ -42,7 +42,7 @@ func (t *RandomWalker) Spawned(ta *game.ThoughtAccumulator, id world.EntityId, w
 	t.id = id
 	t.sc = sc
 	t.spawned++
-	ta.Add(t.w.Now()+1, t, t.l.BlockId)
+	ta.Add(t.w.Now()+1, t.Act, t.l.BlockId)
 }
 
 func (t *RandomWalker) Touched(other world.EntityId, d game.Direction) {
@@ -60,7 +60,7 @@ func (t *RandomWalker) Act(ta *game.ThoughtAccumulator) {
 	//ta.Add(t.w.Now()+1, t.randomStep, t.l.BlockId)
 	nt := ta.ExDirectWriteNextTick()
 	nt.At = t.w.Now() + 1
-	nt.Do = t
+	nt.Do = t.Act
 	nt.BlockId = t.l.BlockId
 	//}
 }
