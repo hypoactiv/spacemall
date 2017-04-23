@@ -6,40 +6,40 @@ import (
 	"testing"
 )
 
-func TestThinkHeap(t *testing.T) {
+func TestActionHeap(t *testing.T) {
 	N := 10000
-	th := &ThinkHeap{}
+	th := &ActionHeap{}
 	for i := 0; i < N; i++ {
-		th.Schedule(Thought{At: Ticks(rand.Int())})
+		th.Schedule(ScheduledAction{At: Tick(rand.Int())})
 	}
-	last := Ticks(-1)
+	last := Tick(-1)
 	for th.Len() > 0 {
-		w := th.PeekTicks()
-		thought := th.Next()
+		w := th.PeekTick()
+		action := th.Next()
 		if last != -1 && last > w {
 			t.Error("scheduled times not monotonic")
 		}
-		if thought.At != w {
+		if action.At != w {
 			t.Error("peek returned wrong value")
 		}
 		last = w
 	}
 }
 
-func BenchmarkThinkHeap(b *testing.B) {
+func BenchmarkActionHeap(b *testing.B) {
 	M := 100000
 	b.StopTimer()
 	fmt.Println(b.N)
-	th := &ThinkHeap{}
-	th.inner.q = make([]Thought, 0, M)
-	ticks := make([]Ticks, M)
+	th := &ActionHeap{}
+	th.inner.q = make([]ScheduledAction, 0, M)
+	ticks := make([]Tick, M)
 	for j := 0; j < M; j++ {
-		ticks[j] = Ticks(rand.Int())
+		ticks[j] = Tick(rand.Int())
 	}
 	b.StartTimer()
 	for j := 0; j < b.N/M; j++ {
 		for i := 0; i < M; i++ {
-			th.Schedule(Thought{At: ticks[i]})
+			th.Schedule(ScheduledAction{At: ticks[i]})
 		}
 		for th.Len() > 0 {
 			th.Next()

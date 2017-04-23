@@ -74,7 +74,7 @@ func (t *RouteWalker) Location() game.Location {
 	return t.l
 }
 
-func (t *RouteWalker) Spawned(ta *game.ThoughtAccumulator, id world.EntityId, w *world.World, sc *layer.StackCursor) {
+func (t *RouteWalker) Spawned(ta *game.ActionAccumulator, id world.EntityId, w *world.World, sc *layer.StackCursor) {
 	now := uint(w.Now())
 	t.w = w
 	t.id = id
@@ -118,7 +118,7 @@ func (t *RouteWalker) Touched(other world.EntityId, d game.Direction) {
 func (t *RouteWalker) HitWall(d game.Direction) {
 }
 
-func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
+func (t *RouteWalker) Act(ta *game.ActionAccumulator) {
 	var makeplan func(uint, *Plan, game.Location, int) (rcDist int, viable bool)
 	now := uint(t.w.Now())
 
@@ -370,7 +370,7 @@ func (t *RouteWalker) Act(ta *game.ThoughtAccumulator) {
 	t.planSet = true
 	//fmt.Println("local intentions", t.sc.Get(intentionIndex))
 	//fmt.Println("nearby intentions", t.sc.Look(intentionIndex))
-	ta.Add(game.Ticks(now+1), t.Act, t.l.BlockId)
+	ta.Add(game.Tick(now+1), t.Act, t.l.BlockId)
 	// TODO remove sanity checks
 	if t.l != t.sc.Cursor() || !t.sc.GetBit(intentionIndex, (now)%BITWIDTH) {
 		panic("asdf")

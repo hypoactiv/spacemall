@@ -50,7 +50,7 @@ func TestZigZagRoute(t *testing.T) {
 	r := NewRoute(w, ul, lr)
 	j := 0
 	for _, rs := range r {
-		for i := 0; i < rs.Length; i++ {
+		for i := uint(0); i < rs.Length; i++ {
 			ul = ul.JustStep(rs.D)
 			j++
 			if w.Walls.Get(ul) != 0 {
@@ -93,7 +93,7 @@ func TestSimpleWalk(t *testing.T) {
 	r := NewRoute(w, ul, lr)
 	steps := 0
 	for _, rs := range r {
-		for i := 0; i < rs.Length; i++ {
+		for i := uint(0); i < rs.Length; i++ {
 			steps++
 			ul = ul.JustStep(rs.D)
 			if w.Walls.Get(ul) != 0 {
@@ -127,7 +127,7 @@ func TestRandomWalkAroundRoom(t *testing.T) {
 		r := NewRoute(w, ul, lr)
 		steps := 0
 		for _, rs := range r {
-			for i := 0; i < rs.Length; i++ {
+			for i := uint(0); i < rs.Length; i++ {
 				steps++
 				ul = ul.JustStep(rs.D)
 				if w.Walls.Get(ul) != 0 {

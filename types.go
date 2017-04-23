@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-type Ticks int
+type Tick int
 
 const (
 	// Edge length of square block in tiles

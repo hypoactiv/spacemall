@@ -75,17 +75,14 @@ type World struct {
 	roomIdRemapStack  []roomIdRemap
 	strict            int
 	AddOps, DeleteOps int
-	//
-	sc       layer.StackCursor
-	Entities map[EntityId]Entity
-	// New thoughts (events to be scheduled) come in on this channel
-	thinkHeap game.ThinkHeap
-	workUnits [2][]workUnit
-	//
-	ticks        game.Ticks
-	ActionCount  int
-	customLayers map[string]*layer.Layer
-	clMutex      sync.Mutex
+	sc                layer.StackCursor
+	Entities          map[EntityId]Entity
+	actionSchedule    game.ActionHeap
+	workUnits         [2][]workUnit
+	ticks             game.Tick
+	ActionCount       int
+	customLayers      map[string]*layer.Layer
+	clMutex           sync.Mutex
 }
 
 const (
@@ -112,64 +109,52 @@ func (w *World) CustomLayer(name string) (l *layer.Layer) {
 	return
 }
 
-// buffer a thought for next tick
-func (w *World) bufferThoughts(ta *game.ThoughtAccumulator) {
-	if ta == nil {
+// Copies the Actions in 'aa' for next tick into into WU_BUFFER, and the
+// Actions for later ticks into w.actionSchedule
+func (w *World) bufferActions(aa *game.ActionAccumulator) {
+	if aa == nil {
 		return
 	}
-	bufferThoughtsInner := func(t []game.Thought) {
+
+	// Buffers a run of ScheduledActions that have the same BlockId.X
+	bufferRun := func(t []game.ScheduledAction) {
 		if len(t) == 0 {
 			return
 		}
-		// thoughts in t all have same X coordinate
+		// ScheduledActions in t all have same X coordinate
+		// Find the workUnit for this X coordinate and append the Actions to
+		// the workUnit.
 		length := len(w.workUnits[WU_BUFFER])
-		// workUnits must be sorted by X value (sorted by column) to allow
-		// work to be split between goroutines later
 		i := sort.Search(length, func(i int) bool {
 			return t[0].BlockId.X <= w.workUnits[WU_BUFFER][i].X
 		})
 		if i == length || w.workUnits[WU_BUFFER][i].X != t[0].BlockId.X {
-			// No workUnit for this column yet
+			// There is no workUnit for BlockId.X, make a new workUnit
 			w.workUnits[WU_BUFFER] = append(w.workUnits[WU_BUFFER], workUnit{})
 			copy(w.workUnits[WU_BUFFER][i+1:], w.workUnits[WU_BUFFER][i:])
 			w.workUnits[WU_BUFFER][i] = workUnit{X: t[0].BlockId.X}
 		}
-		// Append this Thought's Action to the workUnit for this column
 		for _, th := range t {
 			w.workUnits[WU_BUFFER][i].Actions = append(w.workUnits[WU_BUFFER][i].Actions, th.Do)
 		}
 	}
-	// put thoughts for later ticks on thinkHeap
-	for _, v := range ta.LaterTicks {
-		w.thinkHeap.Schedule(v)
+
+	// Actions in LaterTicks get sent to the actionSchedule
+	for _, v := range aa.LaterTicks {
+		w.actionSchedule.Schedule(v)
 	}
-	// sort thoughts for next tick by X value and add to workUnits[WU_BUFFER]
+	// Decompose aa.NextTick into slices of ScheduledActions with the same
+	// BlockId.X, and pass these slices to bufferRun(..) to be added to
+	// the appropriate workUnit
 	runStart := 0
-	for i := range ta.NextTick {
-		if i > 0 && ta.NextTick[i-1].BlockId.X != ta.NextTick[i].BlockId.X {
-			bufferThoughtsInner(ta.NextTick[runStart:i])
+	for i := range aa.NextTick {
+		if i > 0 && aa.NextTick[i-1].BlockId.X != aa.NextTick[i].BlockId.X {
+			bufferRun(aa.NextTick[runStart:i])
 			runStart = i
 		}
 	}
-	bufferThoughtsInner(ta.NextTick[runStart:])
+	bufferRun(aa.NextTick[runStart:])
 }
-
-/*func (w *World) processNewThoughts() {
-	//fmt.Printf("now processing thoughts buf:%p exe:%p\n", w.workUnits[WU_BUFFER], w.workUnits[WU_EXECUTE])
-	defer w.wgProcessThoughts.Done()
-	for t := range w.newThoughts {
-		if t.At == w.ticks+1 {
-			// schedule thoughts for next tick into WU_BUFFER workUnits immediately
-			w.bufferThoughts(t)
-		} else if t.At <= w.ticks {
-			panic("tried to schedule thought for current or past tick")
-		} else {
-			// push later thoughts onto thinkHeap
-			w.thinkHeap.Schedule(t)
-		}
-	}
-	//fmt.Println("stopped processing thoughts")
-}*/
 
 func NewWorld(strictFlags int) *World {
 	w := &World{
@@ -1196,16 +1181,16 @@ func (w *World) Spawn(e Entity) EntityId {
 	sc.Set(0, game.TileId(id))
 	w.nextEntityId++
 	w.Entities[id] = e
-	taTmp := game.AllocateTA(w.ticks + 1) // TODO we should accept a TA as an argument instead of making one
+	taTmp := game.AllocateAA(w.ticks + 1) // TODO we should accept a AA as an argument instead of making one
 	taTmp.Add(
 		w.ticks+1,
-		func(ta *game.ThoughtAccumulator) {
+		func(ta *game.ActionAccumulator) {
 			e.Spawned(ta, id, w, &sc)
 		},
 		l.BlockId,
 	)
-	w.bufferThoughts(taTmp)
-	game.ReleaseTA(taTmp)
+	w.bufferActions(taTmp)
+	game.ReleaseAA(taTmp)
 	return id
 }
 
@@ -1216,7 +1201,7 @@ type spawnActor struct {
 	sc *layer.StackCursor
 }
 
-func (sa *spawnActor) Act(ta *game.ThoughtAccumulator) {
+func (sa *spawnActor) Act(ta *game.ActionAccumulator) {
 	sa.e.Spawned(ta, sa.id, sa.w, sa.sc)
 }
 
@@ -1248,32 +1233,21 @@ func (w *World) StepEntity(eid EntityId, e Entity, sc *layer.StackCursor, d game
 	return sc.Cursor(), true
 }
 
-func (w *World) Now() game.Ticks {
+func (w *World) Now() game.Tick {
 	return w.ticks
 }
 
-/*func (w *World) ScheduleThought(at game.Ticks, do game.Action, bid game.BlockId) {
-	w.newThoughts <- game.Thought{
-		At:      at,
-		Do:      do,
-		BlockId: bid,
-	}
-	//w.thinkHeap.Schedule(at, do, bid)
-}*/
-
 func (w *World) Think() {
-	// check thinkHeap for thoughts scheduled for w.ticks and buffer them
-	// thinkHeap sorted by ticks
-	taTmp := game.AllocateTA(w.ticks + 1)
-	for w.thinkHeap.Len() > 0 {
-		if w.thinkHeap.PeekTicks() > w.ticks {
-			// no more thoughts for w.ticks
+	// Buffer ScheduledActions for w.ticks from actionSchedule
+	taTmp := game.AllocateAA(w.ticks + 1)
+	for w.actionSchedule.Len() > 0 {
+		if w.actionSchedule.PeekTick() > w.ticks {
 			break
 		}
-		taTmp.AddThought(w.thinkHeap.Next())
+		taTmp.AddAction(w.actionSchedule.Next())
 	}
-	w.bufferThoughts(taTmp)
-	game.ReleaseTA(taTmp)
+	w.bufferActions(taTmp)
+	game.ReleaseAA(taTmp)
 	// Swap buffer and execute work units
 	w.workUnits[WU_BUFFER], w.workUnits[WU_EXECUTE] = w.workUnits[WU_EXECUTE], w.workUnits[WU_BUFFER]
 	// w.workUnits[WU_EXECUTE] now contains Actions to be performed during tick
@@ -1282,12 +1256,12 @@ func (w *World) Think() {
 	wuLen := len(wuExe)
 	type workerCommand struct {
 		WU                  []workUnit
-		TA                  *game.ThoughtAccumulator
+		AA                  *game.ActionAccumulator
 		lockStart, lockStop int
 	}
 	type workerResponse struct {
 		Commands chan<- workerCommand
-		TA       *game.ThoughtAccumulator
+		AA       *game.ActionAccumulator
 	}
 	wg := sync.WaitGroup{}
 	responseChannel := make(chan workerResponse, 2)
@@ -1300,7 +1274,7 @@ func (w *World) Think() {
 		for c := range cc {
 			for _, wu := range c.WU {
 				for _, action := range wu.Actions {
-					action(c.TA)
+					action(c.AA)
 				}
 			}
 			for i := c.lockStart; i < c.lockStop; i++ {
@@ -1308,7 +1282,7 @@ func (w *World) Think() {
 			}
 			responseChannel <- workerResponse{
 				Commands: cc,
-				TA:       c.TA,
+				AA:       c.AA,
 			}
 		}
 	}
@@ -1335,22 +1309,25 @@ func (w *World) Think() {
 processLoop:
 	for processing {
 		processing = false
-		// Read a worker response and buffer its new thoughts stored in a ThoughtAccumulator
+		// Read a worker response and find new work for it to do
 		resp := <-responseChannel
+		// Iterate over workUnits to execute this Tick
 		for k := range wuExe {
 			if wuExe[k].done == true {
+				// This workUnit has already been executed
 				continue
 			}
 			if len(wuExe[k].Actions) == 0 {
+				// This workUnit is empty, short circuit it
 				wuExe[k].done = true
 				continue
 			}
-			// still more workUnits to process
+			// if this is reached, there are still more workUnits to process
 			processing = true
 			if wuExe[k].locked ||
 				(k > 0 && wuExe[k-1].locked) ||
 				(k < wuLen-1 && wuExe[k+1].locked) {
-				// column k or a neighbor is locked, can't process
+				// workUnit for column k or a neighbor is locked, can't process
 				continue
 			}
 			// column 'k' can be processed. lock it and its neighbors
@@ -1385,26 +1362,26 @@ processLoop:
 			//fmt.Println(lockStart, exeStart, exeStop, lockStop)
 			resp.Commands <- workerCommand{
 				WU:        wuExe[exeStart:exeStop],
-				TA:        game.AllocateTA(w.ticks + 1),
+				AA:        game.AllocateAA(w.ticks + 1),
 				lockStart: lockStart,
 				lockStop:  lockStop,
 			}
 			w.ActionCount += actionCount
 			wg.Add(1)
 			go worker()
-			w.bufferThoughts(resp.TA)
-			game.ReleaseTA(resp.TA)
+			w.bufferActions(resp.AA)
+			game.ReleaseAA(resp.AA)
 			continue processLoop
 		}
-		w.bufferThoughts(resp.TA)
-		game.ReleaseTA(resp.TA)
+		w.bufferActions(resp.AA)
+		game.ReleaseAA(resp.AA)
 		// no work for worker, shut it down
 		close(resp.Commands)
 	}
 	// shut down remaining workers
 	for resp := range responseChannel {
-		w.bufferThoughts(resp.TA)
-		game.ReleaseTA(resp.TA)
+		w.bufferActions(resp.AA)
+		game.ReleaseAA(resp.AA)
 		close(resp.Commands)
 	}
 	// clear WU_EXECUTE for later reuse as WU_BUFFER
@@ -1414,5 +1391,6 @@ processLoop:
 		v.done = false
 		v.locked = false
 	}
+	// all done -- increment time
 	w.ticks++
 }

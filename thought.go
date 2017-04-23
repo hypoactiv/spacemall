@@ -5,66 +5,61 @@ import (
 	"sort"
 )
 
-type ThoughtAccumulator struct {
-	NextTick   []Thought
-	LaterTicks []Thought
-	ticks      Ticks // the earliest tick this TA will accept (these get buffered in NextTick)
+type ActionAccumulator struct {
+	NextTick   []ScheduledAction
+	LaterTicks []ScheduledAction
+	ticks      Tick // the earliest tick this AA will accept (these get buffered in NextTick)
 }
 
-func (ta *ThoughtAccumulator) AddThought(th Thought) {
-	if th.At == ta.ticks {
-		ta.NextTick = append(ta.NextTick, th)
-	} else if th.At > ta.ticks {
-		ta.LaterTicks = append(ta.LaterTicks, th)
+func (aa *ActionAccumulator) AddAction(th ScheduledAction) {
+	if th.At == aa.ticks {
+		aa.NextTick = append(aa.NextTick, th)
+	} else if th.At > aa.ticks {
+		aa.LaterTicks = append(aa.LaterTicks, th)
 	} else {
-		fmt.Println(ta.ticks, th.At)
-		panic("thought scheduled for past")
+		fmt.Println(aa.ticks, th.At)
+		panic("action scheduled for past")
 	}
 }
 
-func (ta *ThoughtAccumulator) ExDirectWriteNextTick() *Thought {
-	ta.NextTick = append(ta.NextTick, Thought{})
-	return &ta.NextTick[len(ta.NextTick)-1]
-}
-
-func (ta *ThoughtAccumulator) Add(at Ticks, do Action, bid BlockId) {
-	ta.AddThought(Thought{
+func (aa *ActionAccumulator) Add(at Tick, do Action, bid BlockId) {
+	aa.AddAction(ScheduledAction{
 		At:      at,
 		Do:      do,
 		BlockId: bid,
 	})
 }
 
-// t is the earliest Tick this TA will accept
-func (ta *ThoughtAccumulator) Reset(t Ticks) {
-	ta.ticks = t
-	ta.NextTick = ta.NextTick[:0]
-	ta.LaterTicks = ta.LaterTicks[:0]
+// t is the earliest Tick this AA will accept
+func (aa *ActionAccumulator) Reset(t Tick) {
+	aa.ticks = t
+	aa.NextTick = aa.NextTick[:0]
+	aa.LaterTicks = aa.LaterTicks[:0]
 }
 
-func (ta *ThoughtAccumulator) Sort() {
-	sort.Slice(ta.NextTick, func(i, j int) bool {
-		return ta.NextTick[i].BlockId.X <= ta.NextTick[j].BlockId.X
+func (aa *ActionAccumulator) Sort() {
+	sort.Slice(aa.NextTick, func(i, j int) bool {
+		return aa.NextTick[i].BlockId.X <= aa.NextTick[j].BlockId.X
 	})
 }
 
-var taPool []*ThoughtAccumulator
+var aaPool []*ActionAccumulator
 
-func AllocateTA(t Ticks) (ta *ThoughtAccumulator) {
-	last := len(taPool) - 1
+func AllocateAA(t Tick) (aa *ActionAccumulator) {
+	last := len(aaPool) - 1
 	if last >= 0 {
-		ta, taPool = taPool[last], taPool[:last]
+		aa, aaPool = aaPool[last], aaPool[:last]
 	} else {
-		ta = new(ThoughtAccumulator)
+		aa = new(ActionAccumulator)
 	}
-	ta.Reset(t)
+	aa.Reset(t)
 	return
 
 }
 
-func ReleaseTA(ta *ThoughtAccumulator) {
-	if ta == nil {
+func ReleaseAA(aa *ActionAccumulator) {
+	if aa == nil {
 		return
 	}
-	taPool = append(taPool, ta)
+	aaPool = append(aaPool, aa)
 }
