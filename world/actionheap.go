@@ -1,15 +1,16 @@
-package game
+package world
 
 import (
 	"container/heap"
+	"jds/game"
 )
 
 type Action func(*ActionAccumulator)
 
 type ScheduledAction struct {
-	At      Tick
+	At      game.Tick
 	Do      Action
-	BlockId BlockId
+	BlockId game.BlockId
 }
 
 type actionHeapInner struct {
@@ -48,7 +49,7 @@ func (t *ActionHeap) Schedule(th ScheduledAction) { //at Tick, do Action, bid Bl
 
 // Returns the scheduled time of the next ScheduledAction to be returned by Next()
 // Panics if heap is empty
-func (t *ActionHeap) PeekTick() Tick {
+func (t *ActionHeap) PeekTick() game.Tick {
 	return t.inner.q[0].At
 }
 

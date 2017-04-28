@@ -1,7 +1,8 @@
-package game
+package world
 
 import (
 	"fmt"
+	"jds/game"
 	"math/rand"
 	"testing"
 )
@@ -10,9 +11,9 @@ func TestActionHeap(t *testing.T) {
 	N := 10000
 	th := &ActionHeap{}
 	for i := 0; i < N; i++ {
-		th.Schedule(ScheduledAction{At: Tick(rand.Int())})
+		th.Schedule(ScheduledAction{At: game.Tick(rand.Int())})
 	}
-	last := Tick(-1)
+	last := game.Tick(-1)
 	for th.Len() > 0 {
 		w := th.PeekTick()
 		action := th.Next()
@@ -32,9 +33,9 @@ func BenchmarkActionHeap(b *testing.B) {
 	fmt.Println(b.N)
 	th := &ActionHeap{}
 	th.inner.q = make([]ScheduledAction, 0, M)
-	ticks := make([]Tick, M)
+	ticks := make([]game.Tick, M)
 	for j := 0; j < M; j++ {
-		ticks[j] = Tick(rand.Int())
+		ticks[j] = game.Tick(rand.Int())
 	}
 	b.StartTimer()
 	for j := 0; j < b.N/M; j++ {

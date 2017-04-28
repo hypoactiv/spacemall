@@ -1,14 +1,20 @@
-package game
+package world
 
 import (
 	"fmt"
+	"jds/game"
 	"sort"
 )
 
+// Collects new ScheduledActions and sorts them by tick
 type ActionAccumulator struct {
 	NextTick   []ScheduledAction
 	LaterTicks []ScheduledAction
-	ticks      Tick // the earliest tick this AA will accept (these get buffered in NextTick)
+	ticks      game.Tick // the earliest tick this AA will accept (these get buffered in NextTick)
+	/*E          struct {
+		Spawns []Entity
+		Deaths []EntityId
+	}*/
 }
 
 func (aa *ActionAccumulator) AddAction(th ScheduledAction) {
@@ -22,7 +28,7 @@ func (aa *ActionAccumulator) AddAction(th ScheduledAction) {
 	}
 }
 
-func (aa *ActionAccumulator) Add(at Tick, do Action, bid BlockId) {
+func (aa *ActionAccumulator) Add(at game.Tick, do Action, bid game.BlockId) {
 	aa.AddAction(ScheduledAction{
 		At:      at,
 		Do:      do,
@@ -31,7 +37,7 @@ func (aa *ActionAccumulator) Add(at Tick, do Action, bid BlockId) {
 }
 
 // t is the earliest Tick this AA will accept
-func (aa *ActionAccumulator) Reset(t Tick) {
+func (aa *ActionAccumulator) Reset(t game.Tick) {
 	aa.ticks = t
 	aa.NextTick = aa.NextTick[:0]
 	aa.LaterTicks = aa.LaterTicks[:0]
@@ -45,7 +51,7 @@ func (aa *ActionAccumulator) Sort() {
 
 var aaPool []*ActionAccumulator
 
-func AllocateAA(t Tick) (aa *ActionAccumulator) {
+func AllocateAA(t game.Tick) (aa *ActionAccumulator) {
 	last := len(aaPool) - 1
 	if last >= 0 {
 		aa, aaPool = aaPool[last], aaPool[:last]

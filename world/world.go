@@ -45,7 +45,7 @@ func (l LayerError) String() string {
 
 // A workUnit is a set of Actions to be performed in a single World column
 type workUnit struct {
-	Actions []game.Action
+	Actions []Action
 	X       int
 	locked  bool
 	done    bool
@@ -77,7 +77,7 @@ type World struct {
 	AddOps, DeleteOps int
 	sc                layer.StackCursor
 	Entities          map[EntityId]Entity
-	actionSchedule    game.ActionHeap
+	actionSchedule    ActionHeap
 	workUnits         [2][]workUnit
 	ticks             game.Tick
 	ActionCount       int
@@ -111,13 +111,13 @@ func (w *World) CustomLayer(name string) (l *layer.Layer) {
 
 // Copies the Actions in 'aa' for next tick into into WU_BUFFER, and the
 // Actions for later ticks into w.actionSchedule
-func (w *World) bufferActions(aa *game.ActionAccumulator) {
+func (w *World) bufferActions(aa *ActionAccumulator) {
 	if aa == nil {
 		return
 	}
 
 	// Buffers a run of ScheduledActions that have the same BlockId.X
-	bufferRun := func(t []game.ScheduledAction) {
+	bufferRun := func(t []ScheduledAction) {
 		if len(t) == 0 {
 			return
 		}
@@ -1181,16 +1181,16 @@ func (w *World) Spawn(e Entity) EntityId {
 	sc.Set(0, game.TileId(id))
 	w.nextEntityId++
 	w.Entities[id] = e
-	taTmp := game.AllocateAA(w.ticks + 1) // TODO we should accept a AA as an argument instead of making one
+	taTmp := AllocateAA(w.ticks + 1) // TODO we should accept a AA as an argument instead of making one
 	taTmp.Add(
 		w.ticks+1,
-		func(ta *game.ActionAccumulator) {
+		func(ta *ActionAccumulator) {
 			e.Spawned(ta, id, w, &sc)
 		},
 		l.BlockId,
 	)
 	w.bufferActions(taTmp)
-	game.ReleaseAA(taTmp)
+	ReleaseAA(taTmp)
 	return id
 }
 
@@ -1201,7 +1201,7 @@ type spawnActor struct {
 	sc *layer.StackCursor
 }
 
-func (sa *spawnActor) Act(ta *game.ActionAccumulator) {
+func (sa *spawnActor) Act(ta *ActionAccumulator) {
 	sa.e.Spawned(ta, sa.id, sa.w, sa.sc)
 }
 
@@ -1239,7 +1239,7 @@ func (w *World) Now() game.Tick {
 
 func (w *World) Think() {
 	// Buffer ScheduledActions for w.ticks from actionSchedule
-	taTmp := game.AllocateAA(w.ticks + 1)
+	taTmp := AllocateAA(w.ticks + 1)
 	for w.actionSchedule.Len() > 0 {
 		if w.actionSchedule.PeekTick() > w.ticks {
 			break
@@ -1247,7 +1247,7 @@ func (w *World) Think() {
 		taTmp.AddAction(w.actionSchedule.Next())
 	}
 	w.bufferActions(taTmp)
-	game.ReleaseAA(taTmp)
+	ReleaseAA(taTmp)
 	// Swap buffer and execute work units
 	w.workUnits[WU_BUFFER], w.workUnits[WU_EXECUTE] = w.workUnits[WU_EXECUTE], w.workUnits[WU_BUFFER]
 	// w.workUnits[WU_EXECUTE] now contains Actions to be performed during tick
@@ -1256,12 +1256,12 @@ func (w *World) Think() {
 	wuLen := len(wuExe)
 	type workerCommand struct {
 		WU                  []workUnit
-		AA                  *game.ActionAccumulator
+		AA                  *ActionAccumulator
 		lockStart, lockStop int
 	}
 	type workerResponse struct {
 		Commands chan<- workerCommand
-		AA       *game.ActionAccumulator
+		AA       *ActionAccumulator
 	}
 	wg := sync.WaitGroup{}
 	responseChannel := make(chan workerResponse, 2)
@@ -1362,7 +1362,7 @@ processLoop:
 			//fmt.Println(lockStart, exeStart, exeStop, lockStop)
 			resp.Commands <- workerCommand{
 				WU:        wuExe[exeStart:exeStop],
-				AA:        game.AllocateAA(w.ticks + 1),
+				AA:        AllocateAA(w.ticks + 1),
 				lockStart: lockStart,
 				lockStop:  lockStop,
 			}
@@ -1370,18 +1370,18 @@ processLoop:
 			wg.Add(1)
 			go worker()
 			w.bufferActions(resp.AA)
-			game.ReleaseAA(resp.AA)
+			ReleaseAA(resp.AA)
 			continue processLoop
 		}
 		w.bufferActions(resp.AA)
-		game.ReleaseAA(resp.AA)
+		ReleaseAA(resp.AA)
 		// no work for worker, shut it down
 		close(resp.Commands)
 	}
 	// shut down remaining workers
 	for resp := range responseChannel {
 		w.bufferActions(resp.AA)
-		game.ReleaseAA(resp.AA)
+		ReleaseAA(resp.AA)
 		close(resp.Commands)
 	}
 	// clear WU_EXECUTE for later reuse as WU_BUFFER

@@ -74,7 +74,7 @@ func (t *RouteWalker) Location() game.Location {
 	return t.l
 }
 
-func (t *RouteWalker) Spawned(ta *game.ActionAccumulator, id world.EntityId, w *world.World, sc *layer.StackCursor) {
+func (t *RouteWalker) Spawned(ta *world.ActionAccumulator, id world.EntityId, w *world.World, sc *layer.StackCursor) {
 	now := uint(w.Now())
 	t.w = w
 	t.id = id
@@ -118,7 +118,7 @@ func (t *RouteWalker) Touched(other world.EntityId, d game.Direction) {
 func (t *RouteWalker) HitWall(d game.Direction) {
 }
 
-func (t *RouteWalker) Act(ta *game.ActionAccumulator) {
+func (t *RouteWalker) Act(ta *world.ActionAccumulator) {
 	var makeplan func(uint, *Plan, game.Location, int) (rcDist int, viable bool)
 	now := uint(t.w.Now())
 

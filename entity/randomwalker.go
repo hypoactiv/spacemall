@@ -37,7 +37,7 @@ func (t *RandomWalker) Location() game.Location {
 	return t.l
 }
 
-func (t *RandomWalker) Spawned(ta *game.ActionAccumulator, id world.EntityId, w *world.World, sc *layer.StackCursor) {
+func (t *RandomWalker) Spawned(ta *world.ActionAccumulator, id world.EntityId, w *world.World, sc *layer.StackCursor) {
 	t.w = w
 	t.id = id
 	t.sc = sc
@@ -53,7 +53,7 @@ func (t *RandomWalker) HitWall(d game.Direction) {
 	t.hitWall++
 }
 
-func (t *RandomWalker) Act(ta *game.ActionAccumulator) {
+func (t *RandomWalker) Act(ta *world.ActionAccumulator) {
 	numSteps++
 	t.l, _ = t.w.StepEntity(t.id, t, t.sc, randomTable[numSteps%100])
 	ta.Add(t.w.Now()+1, t.Act, t.l.BlockId)
