@@ -39,13 +39,6 @@ func (aa *ActionAccumulator) Add(at game.Tick, do Action, bid game.BlockId) {
 	})
 }
 
-// t is the earliest Tick this AA will accept
-func (aa *ActionAccumulator) Reset(t game.Tick) {
-	aa.nextTick = t
-	aa.NextTick = aa.NextTick[:0]
-	aa.LaterTicks = aa.LaterTicks[:0]
-}
-
 func (aa *ActionAccumulator) Sort() {
 	sort.Slice(aa.NextTick, func(i, j int) bool {
 		return aa.NextTick[i].BlockId.X <= aa.NextTick[j].BlockId.X
@@ -54,14 +47,23 @@ func (aa *ActionAccumulator) Sort() {
 
 var aaPool []*ActionAccumulator
 
+// Allocate an ActionAccumulator with nextTick t
 func AllocateAA(t game.Tick) (aa *ActionAccumulator) {
 	last := len(aaPool) - 1
 	if last >= 0 {
 		aa, aaPool = aaPool[last], aaPool[:last]
+		aa.NextTick = aa.NextTick[:0]
+		aa.LaterTicks = aa.LaterTicks[:0]
+		aa.E.Deaths = aa.E.Deaths[:0]
+		// To garbage collect, must set slice values to nil
+		for i := range aa.E.Spawns {
+			aa.E.Spawns[i] = nil
+		}
+		aa.E.Spawns = aa.E.Spawns[:0]
 	} else {
 		aa = new(ActionAccumulator)
 	}
-	aa.Reset(t)
+	aa.nextTick = t
 	return
 }
 
