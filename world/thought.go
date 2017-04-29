@@ -63,7 +63,6 @@ func AllocateAA(t game.Tick) (aa *ActionAccumulator) {
 	}
 	aa.Reset(t)
 	return
-
 }
 
 func ReleaseAA(aa *ActionAccumulator) {
