@@ -10,7 +10,7 @@ type EntityId int
 const ENTITYID_INVALID = 0
 
 type Entity interface {
-	// Entity E's location
+	// Entity's location
 	Location() game.Location
 	// Events happening to an Entity 'E'
 	//
