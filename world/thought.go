@@ -8,22 +8,25 @@ import (
 
 // Collects new ScheduledActions and sorts them by tick
 type ActionAccumulator struct {
-	NextTick   []ScheduledAction
+	// Buffer actions for nextTick into slice NextTick
+	nextTick game.Tick
+	NextTick []ScheduledAction
+	// Buffer all later actions into LaterTicks
 	LaterTicks []ScheduledAction
-	ticks      game.Tick // the earliest tick this AA will accept (these get buffered in NextTick)
-	/*E          struct {
+	// Entity spawns and deaths happening during nextTick
+	E struct {
 		Spawns []Entity
 		Deaths []EntityId
-	}*/
+	}
 }
 
 func (aa *ActionAccumulator) AddAction(th ScheduledAction) {
-	if th.At == aa.ticks {
+	if th.At == aa.nextTick {
 		aa.NextTick = append(aa.NextTick, th)
-	} else if th.At > aa.ticks {
+	} else if th.At > aa.nextTick {
 		aa.LaterTicks = append(aa.LaterTicks, th)
 	} else {
-		fmt.Println(aa.ticks, th.At)
+		fmt.Println(aa.nextTick, th.At)
 		panic("action scheduled for past")
 	}
 }
@@ -38,7 +41,7 @@ func (aa *ActionAccumulator) Add(at game.Tick, do Action, bid game.BlockId) {
 
 // t is the earliest Tick this AA will accept
 func (aa *ActionAccumulator) Reset(t game.Tick) {
-	aa.ticks = t
+	aa.nextTick = t
 	aa.NextTick = aa.NextTick[:0]
 	aa.LaterTicks = aa.LaterTicks[:0]
 }
