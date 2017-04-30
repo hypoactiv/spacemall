@@ -92,3 +92,12 @@ func (m *Min) Argmin() interface{} {
 func (m *Min) Min() int {
 	return m.min
 }
+
+func CountNonZero(x [8]TileId) (c int) {
+	for _, y := range x {
+		if y != 0 {
+			c++ // what's this :)
+		}
+	}
+	return
+}

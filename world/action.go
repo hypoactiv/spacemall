@@ -7,13 +7,14 @@ import (
 )
 
 // Collects new ScheduledActions and sorts them by tick
+// TODO rename WorkBuffer (?)
 type ActionAccumulator struct {
 	// Buffer actions for nextTick into slice NextTick
 	nextTick game.Tick
 	NextTick []ScheduledAction
 	// Buffer all later actions into LaterTicks
 	LaterTicks []ScheduledAction
-	// Entity spawns and deaths happening during nextTick
+	// Entity spawns and deaths happening before nextTick
 	E struct {
 		Spawns []Entity
 		Deaths []EntityId
@@ -37,6 +38,14 @@ func (aa *ActionAccumulator) Add(at game.Tick, do Action, bid game.BlockId) {
 		Do:      do,
 		BlockId: bid,
 	})
+}
+
+func (aa *ActionAccumulator) Spawn(e Entity) {
+	aa.E.Spawns = append(aa.E.Spawns, e)
+}
+
+func (aa *ActionAccumulator) Kill(e EntityId) {
+	aa.E.Deaths = append(aa.E.Deaths, e)
 }
 
 func (aa *ActionAccumulator) Sort() {

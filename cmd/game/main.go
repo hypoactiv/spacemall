@@ -5,7 +5,6 @@ import (
 	"jds/game"
 	"jds/game/layer"
 	"jds/game/world"
-	"jds/game/world/generate"
 	"jds/runstat"
 	"math/rand"
 	"os"
@@ -528,7 +527,8 @@ func FuzzAndDebug() {
 	//logGzip := gzip.NewWriter(logFile)
 	//logEnc := gob.NewEncoder(logGzip)
 	//defer logGzip.Close()
-	w := generate.NewGridWorld(5, 5) //world.NewWorld(0) //world.STRICT_FSCK_EVERY_OP)
+	w := world.NewWorld(0)
+	//w := generate.NewGridWorld(5, 5) //world.NewWorld(0) //world.STRICT_FSCK_EVERY_OP)
 	te, err := NewTileEngine("tileset.png", w, WIDTH, HEIGHT)
 	rand.Seed(int64(time.Now().Nanosecond()))
 	if err != nil {

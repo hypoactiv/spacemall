@@ -111,11 +111,12 @@ func (w *World) CustomLayer(name string) (l *layer.Layer) {
 
 // Copies the Actions in 'aa' for next tick into into WU_BUFFER, and the
 // Actions for later ticks into w.actionSchedule
-func (w *World) bufferActions(aa *ActionAccumulator) {
+//
+// Spawns and Kills the entities in aa.E
+func (w *World) process(aa *ActionAccumulator) {
 	if aa == nil {
 		return
 	}
-
 	// Buffers a run of ScheduledActions that have the same BlockId.X
 	bufferRun := func(t []ScheduledAction) {
 		if len(t) == 0 {
@@ -139,7 +140,7 @@ func (w *World) bufferActions(aa *ActionAccumulator) {
 		}
 	}
 
-	// Actions in LaterTicks get sent to the actionSchedule
+	// Actions in LaterTicks get sent to the actionSchedule heap
 	for _, v := range aa.LaterTicks {
 		w.actionSchedule.Schedule(v)
 	}
@@ -153,7 +154,23 @@ func (w *World) bufferActions(aa *ActionAccumulator) {
 			runStart = i
 		}
 	}
+	// Buffer final run of BlockId.X values
 	bufferRun(aa.NextTick[runStart:])
+	// Process entity spawns and deaths
+	for _, e := range aa.E.Spawns {
+		w.Spawn(e)
+	}
+	for _, eid := range aa.E.Deaths {
+		// TODO this is a hack. at least make a Kill funcion ala Spawn
+		e := w.Entities[eid]
+		// Sanity check
+		if EntityId(w.EntityIds.Get(e.Location())) != eid {
+			panic("wrong entity location")
+		}
+		w.EntityIds.Set(e.Location(), 0)
+		delete(w.Entities, eid)
+		//panic("entity deaths not implemented")
+	}
 }
 
 func NewWorld(strictFlags int) *World {
@@ -1189,27 +1206,16 @@ func (w *World) Spawn(e Entity) EntityId {
 		},
 		l.BlockId,
 	)
-	w.bufferActions(taTmp)
+	w.process(taTmp)
 	ReleaseAA(taTmp)
 	return id
-}
-
-type spawnActor struct {
-	e  Entity
-	id EntityId
-	w  *World
-	sc *layer.StackCursor
-}
-
-func (sa *spawnActor) Act(ta *ActionAccumulator) {
-	sa.e.Spawned(ta, sa.id, sa.w, sa.sc)
 }
 
 // sc must be a stack cursor at the entity's current location, with w.EntityIds
 // as layer index 0, and e.Walls as layer index 1 (the same one passed during the
 // Spawned event.)
 //
-// upon return, sc's cursor will be at the entity's new location
+// upon return, sc will be at the entity's new location
 //
 // true is returned if and only if the step is taken
 func (w *World) StepEntity(eid EntityId, e Entity, sc *layer.StackCursor, d game.Direction) (game.Location, bool) {
@@ -1238,15 +1244,17 @@ func (w *World) Now() game.Tick {
 }
 
 func (w *World) Think() {
+	// all done -- increment time
+	w.ticks++
 	// Buffer ScheduledActions for w.ticks from actionSchedule
-	taTmp := AllocateAA(w.ticks + 1)
+	taTmp := AllocateAA(w.ticks)
 	for w.actionSchedule.Len() > 0 {
 		if w.actionSchedule.PeekTick() > w.ticks {
 			break
 		}
 		taTmp.AddAction(w.actionSchedule.Next())
 	}
-	w.bufferActions(taTmp)
+	w.process(taTmp)
 	ReleaseAA(taTmp)
 	// Swap buffer and execute work units
 	w.workUnits[WU_BUFFER], w.workUnits[WU_EXECUTE] = w.workUnits[WU_EXECUTE], w.workUnits[WU_BUFFER]
@@ -1367,20 +1375,21 @@ processLoop:
 				lockStop:  lockStop,
 			}
 			w.ActionCount += actionCount
+			// Start a new worker, in the hope there's more work to be done
 			wg.Add(1)
 			go worker()
-			w.bufferActions(resp.AA)
+			w.process(resp.AA)
 			ReleaseAA(resp.AA)
 			continue processLoop
 		}
-		w.bufferActions(resp.AA)
+		w.process(resp.AA)
 		ReleaseAA(resp.AA)
 		// no work for worker, shut it down
 		close(resp.Commands)
 	}
 	// shut down remaining workers
 	for resp := range responseChannel {
-		w.bufferActions(resp.AA)
+		w.process(resp.AA)
 		ReleaseAA(resp.AA)
 		close(resp.Commands)
 	}
@@ -1391,6 +1400,4 @@ processLoop:
 		v.done = false
 		v.locked = false
 	}
-	// all done -- increment time
-	w.ticks++
 }

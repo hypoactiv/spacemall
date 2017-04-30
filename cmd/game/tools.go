@@ -48,6 +48,10 @@ var toolset = []struct {
 	Create ToolCreator
 }{
 	{
+		Name:   "Conway",
+		Create: NewConwayTool,
+	},
+	{
 		Name:   "RouteWalker",
 		Create: NewRouteWalkerTool,
 	},
@@ -422,6 +426,38 @@ spawnNext:
 		t.w.Think()
 		fmt.Println("think took", time.Since(thinkStart))
 	}
+	return nil
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Conway Game of Life Cell Tool
+type ConwayTool struct {
+	a game.Location
+	w *world.World
+}
+
+func NewConwayTool(w *world.World) Tool {
+	return &ConwayTool{
+		w: w,
+	}
+}
+
+func (t *ConwayTool) Preview(l game.Location) (c <-chan game.Location, color sdl.Color) {
+	cc := make(chan game.Location)
+	close(cc)
+	c = cc
+	return
+}
+
+func (t *ConwayTool) Click(l game.Location) game.ModMap {
+	for i := 0; i < 50; i++ {
+		l := l.JustOffset(rand.Intn(20)-10, rand.Intn(20)-10)
+		t.w.Spawn(entity.NewConwayCell(l))
+	}
+	return nil
+}
+
+func (t *ConwayTool) RightClick(l game.Location) game.ModMap {
 	return nil
 }
 
