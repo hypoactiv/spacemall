@@ -55,11 +55,6 @@ func AllocateAA(t game.Tick) (aa *ActionAccumulator) {
 		aa.NextTick = aa.NextTick[:0]
 		aa.LaterTicks = aa.LaterTicks[:0]
 		aa.E.Deaths = aa.E.Deaths[:0]
-		// To garbage collect, must set slice values to nil
-		for i := range aa.E.Spawns {
-			aa.E.Spawns[i] = nil
-		}
-		aa.E.Spawns = aa.E.Spawns[:0]
 	} else {
 		aa = new(ActionAccumulator)
 	}
@@ -71,5 +66,10 @@ func ReleaseAA(aa *ActionAccumulator) {
 	if aa == nil {
 		return
 	}
+	// To garbage collect entities, must set slice values to nil
+	for i := range aa.E.Spawns {
+		aa.E.Spawns[i] = nil
+	}
+	aa.E.Spawns = aa.E.Spawns[:0]
 	aaPool = append(aaPool, aa)
 }
