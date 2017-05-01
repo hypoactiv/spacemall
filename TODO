@@ -1,10 +1,8 @@
-Move all(most?) types into top-level game package
 TODO rethink exported fields/methods on all structs
 
 
-can transaction support ever return?
+can transaction support ever return? (seems not)
 
-AddRowMask for ModMap
 
 
 the journey to pathfinding  (getting there!!)
@@ -18,21 +16,11 @@ the journey to pathfinding  (getting there!!)
       if mode == 0, neighbors of src are doors of src.root, edge lengths is len(a*-search(src, door)), huersitic is L1 distance, nodes are src, dst, and intermediate doors
 
 
-entities
-perform some action every tick (step, buy, plan, etc)
-change location a lot, need to be fast to draw
-1000's on screen
+Can entities have continuous position?
 
 
-make thinkheap only sort by time, not X
-
-as events come in, those scheduled for next tick get sorted into work units. those scheduled for later ticks go on heap.
-
-at think time, pull all current tick events off heap and add them to work units.
-
-execute work units, new events will come in
 
 
-tr to make the woerkers a tight loop as much as possible. make a conductor and just passes slices of actions to the workers, which execute them and give some signal when done.
 
-if we can't see the next tile in the route, walk around the current tile while keeping same MaxDist until next tile becomes visible
+
+
