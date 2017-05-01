@@ -44,12 +44,21 @@ func (w *World) Think() {
 		}
 		// assigned workUnits are done, now unlock
 		if wuRunStart > 0 {
+			if !wuExe[wuRunStart-1].locked {
+				panic("unexpected lock state")
+			}
 			wuExe[wuRunStart-1].locked = false
 		}
 		for i := wuRunStart; i <= wuRunEnd; i++ {
+			if !wuExe[i].locked {
+				panic("unexpected lock state")
+			}
 			wuExe[i].locked = false
 		}
 		if wuRunEnd < wuLen-1 {
+			if !wuExe[wuRunEnd+1].locked {
+				panic("unexpected lock state")
+			}
 			wuExe[wuRunEnd+1].locked = false
 		}
 		aa.Close()
@@ -60,18 +69,28 @@ func (w *World) Think() {
 	// Divide the workUnits into groups of a reasonable size, and launch workers
 	// to process the workUnits
 	moreWork := true
+	i := -1
 	for moreWork { // Loop until all workUnits are done
 		moreWork = false
 		// Find the start of a run of workUnits
 		wuRunStart := -1
 		wuRunEnd := 0
-		for i, wu := range wuExe {
+		for j := 0; j < wuLen; j++ { //i, wu := range wuExe {
+			i = ((i + 1) % wuLen)
+			wu := &wuExe[i]
 			if wu.done {
 				continue
 			}
 			// at least one workUnit is not done
 			moreWork = true
 			if wu.locked {
+				continue
+			}
+			if wu.done { // if column was just unlocked, done status may have changed since previous check
+				continue
+			}
+			if len(wu.Actions) == 0 {
+				wu.done = true
 				continue
 			}
 			// Can this workUnit be processed now?
@@ -84,6 +103,7 @@ func (w *World) Think() {
 				continue
 			}
 			// This workUnit can be processed, start a new run
+			//fmt.Println("ok start", i, wu.done, wu.locked, w.ticks)
 			wuRunStart = i
 			break
 		}
@@ -96,7 +116,7 @@ func (w *World) Think() {
 					break
 				}
 				// Not last column, check right column
-				if wuExe[wuRunEnd+1].done || wuExe[wuRunEnd+1].locked {
+				if wuExe[wuRunEnd+1].locked || wuExe[wuRunEnd+1].done {
 					// Right column is done or locked, end of run
 					break
 				}
@@ -124,6 +144,7 @@ func (w *World) Think() {
 			workerAAs = append(workerAAs, aa)
 			// Launch worker
 			wgWorkers.Add(1)
+			//fmt.Println("worker start", wuRunStart, wuRunEnd, w.ticks)
 			go worker(wuRunStart, wuRunEnd, aa)
 			w.ThinkStats.Workers++
 		} else { // wuRunStart == -1
