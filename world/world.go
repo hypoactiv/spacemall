@@ -83,6 +83,11 @@ type World struct {
 	ActionCount       int
 	customLayers      map[string]*layer.Layer
 	clMutex           sync.Mutex
+	ThinkStats        struct {
+		Actions int
+		Workers int
+		Elapsed time.Duration
+	}
 }
 
 const (

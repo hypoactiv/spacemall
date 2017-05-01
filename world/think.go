@@ -2,9 +2,11 @@ package world
 
 import (
 	"sync"
+	"time"
 )
 
 func (w *World) Think() {
+	start := time.Now()
 	// increment time
 	w.ticks++
 	// Buffer ScheduledActions for w.ticks from actionSchedule
@@ -32,6 +34,9 @@ func (w *World) Think() {
 	worker := func(wuRunStart, wuRunEnd int, aa *ActionAccumulator) {
 		// Process workUnits between wuRunStart and wuRunEnd, inclusive
 		for i := wuRunStart; i <= wuRunEnd; i++ {
+			if wuExe[i].done {
+				panic("tried to execute completed workUnit")
+			}
 			for _, action := range wuExe[i].Actions {
 				action(aa)
 			}
@@ -41,7 +46,7 @@ func (w *World) Think() {
 		if wuRunStart > 0 {
 			wuExe[wuRunStart-1].locked = false
 		}
-		for i := wuRunStart; i < wuRunEnd; i++ {
+		for i := wuRunStart; i <= wuRunEnd; i++ {
 			wuExe[i].locked = false
 		}
 		if wuRunEnd < wuLen-1 {
@@ -96,18 +101,19 @@ func (w *World) Think() {
 					break
 				}
 				actionCount += len(wuExe[wuRunEnd].Actions)
-				if actionCount > 100000 {
+				if actionCount > 300 {
 					// Enough work for 1 worker, end of run
 					break
 				}
 			}
-			// wuRunEnd <= wuLen, and all work units between wuRenStart and
+			w.ThinkStats.Actions += actionCount
+			// wuRunEnd < wuLen, and all work units between wuRenStart and
 			// wuRunEnd inclusive can and will now be processed by a new worker.
 			// Lock workUnits, worker responsible for unlocking
 			if wuRunStart > 0 {
 				wuExe[wuRunStart-1].locked = true
 			}
-			for j := wuRunStart; j < wuRunEnd; j++ {
+			for j := wuRunStart; j <= wuRunEnd; j++ {
 				wuExe[j].locked = true
 			}
 			if wuRunEnd < wuLen-1 {
@@ -118,8 +124,8 @@ func (w *World) Think() {
 			workerAAs = append(workerAAs, aa)
 			// Launch worker
 			wgWorkers.Add(1)
-			//fmt.Println("tick", w.Now(), "launcher worker", wuRunStart, wuRunEnd, actionCount)
 			go worker(wuRunStart, wuRunEnd, aa)
+			w.ThinkStats.Workers++
 		} else { // wuRunStart == -1
 			// no run found, process any closed ActionAccumulators and wait
 			for i := range workerAAs {
@@ -155,4 +161,5 @@ func (w *World) Think() {
 		v.done = false
 		v.locked = false
 	}
+	w.ThinkStats.Elapsed += time.Since(start)
 }
