@@ -239,7 +239,7 @@ func (sc *StackCursor) Look(l LayerIndex) (proximity [8]game.TileId) {
 	yOffsets := [8]int8{1, 0, 2, 1, 0, 2, 0, 2}
 	sl := sc.s[l]
 	// Step cursor LEFTUP so all offsets above are positive, and only 4 blocks need to be considered
-	c, dx, dy := sc.c.Step(game.LEFTUP)
+	c, dx, dy := sc.c.LeftUp()
 	// try to reach c's block by sc.c's block
 	bc := sc.b[l]
 	if bc == nil {

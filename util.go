@@ -94,8 +94,8 @@ func (m *Min) Min() int {
 }
 
 func CountNonZero(x [8]TileId) (c int) {
-	for _, y := range x {
-		if y != 0 {
+	for i := range x {
+		if x[i] != 0 {
 			c++ // what's this :)
 		}
 	}
