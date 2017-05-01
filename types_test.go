@@ -3,6 +3,7 @@ package game
 import (
 	"math/rand"
 	"testing"
+	"unsafe"
 )
 
 func TestLocationStep(t *testing.T) {
@@ -99,4 +100,9 @@ func TestTowards(t *testing.T) {
 		a = a.JustStep(a.Towards(b))
 		t.Log(a.MaxDistance(b), a)
 	}
+}
+
+func TestTypeSizes(t *testing.T) {
+	t.Log("Location", unsafe.Sizeof(Location{}))
+	t.Log("Direction", unsafe.Sizeof(Direction(0)))
 }
