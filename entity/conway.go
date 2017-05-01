@@ -43,7 +43,10 @@ func (t *ConwayCell) Spawned(ta *world.ActionAccumulator, id world.EntityId, w *
 	if t.sc.Add(t.w.CustomLayer("Conway")) != conwayLayer {
 		panic("unexpected layer id")
 	}
-	t.sc.Set(conwayLayer, 1) // TODO only cells made by NewConwayCell need this
+	for d, v := range t.sc.Look(conwayLayer) {
+		d := game.Direction(d)
+		t.sc.DirectedSet(conwayLayer, d, v+1)
+	}
 	nexttick := (w.Now()/2 + 1) * 2
 	ta.Add(nexttick, t.Act, t.l.BlockId)
 	if w.Now() != t.spawntick && t.spawntick != 0 {
@@ -64,13 +67,15 @@ func (t *ConwayCell) HitWall(d game.Direction) {
 
 func (t *ConwayCell) die(ta *world.ActionAccumulator) {
 	ta.Kill(t.id)
-	t.sc.Set(conwayLayer, 0)
+	for d, v := range t.sc.Look(conwayLayer) {
+		d := game.Direction(d)
+		t.sc.DirectedSet(conwayLayer, d, v-1)
+	}
 	cellPool.Put(t)
 }
 
 func (t *ConwayCell) Act(ta *world.ActionAccumulator) {
-	conwayLocal := t.sc.Look(conwayLayer)
-	neighbors := game.CountNonZero(conwayLocal)
+	neighbors := t.sc.Get(conwayLayer)
 	// Conway's rules
 	if neighbors <= 1 || neighbors >= 4 {
 		// Die
@@ -79,20 +84,21 @@ func (t *ConwayCell) Act(ta *world.ActionAccumulator) {
 		// Survive until next World tick
 		ta.Add(t.w.Now()+2, t.Act, t.l.BlockId)
 	}
-	// Spawn new cell in an empty location if it has exactly 3 neighbors
+	// Spawn new cell in an empty neighboring location if it has exactly 3
+	// neighboring cells
+	conwayLocal := t.sc.Look(conwayLayer)
+	entityLocal := t.sc.Look(0)
 	for d, nl := range t.l.Neighborhood() {
 		d := game.Direction(d)
-		if conwayLocal[d] != 0 {
-			// A cell is already here
+		if entityLocal[d] != 0 {
+			// Something, maybe another cell, is already here
 			continue
 		}
-		t.sc.Step(d)
-		if game.CountNonZero(t.sc.Look(conwayLayer)) == 3 {
+		if conwayLocal[d] == 3 {
 			c := cellPool.Get().(*ConwayCell)
 			c.l = nl
 			c.spawntick = t.w.Now() + 1
 			ta.Spawn(c)
 		}
-		t.sc.Step(d.Reverse())
 	}
 }
