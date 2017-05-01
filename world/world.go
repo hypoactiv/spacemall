@@ -1247,3 +1247,13 @@ func (w *World) StepEntity(eid EntityId, e Entity, sc *layer.StackCursor, d game
 func (w *World) Now() game.Tick {
 	return w.ticks
 }
+
+func (w *World) Discard() {
+	w.Walls.Discard()
+	w.RoomIds.Discard()
+	w.EntityIds.Discard()
+	w.DoorIds.Discard()
+	for _, v := range w.customLayers {
+		v.Discard()
+	}
+}
