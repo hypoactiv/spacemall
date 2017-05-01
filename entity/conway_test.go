@@ -19,6 +19,7 @@ func TestConwayCell(t *testing.T) {
 	for i := 0; i < 50000; i++ {
 		w.Think()
 	}
+	w.Discard()
 }
 
 func BenchmarkConwayCell(b *testing.B) {
@@ -33,4 +34,6 @@ func BenchmarkConwayCell(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		w.Think()
 	}
+	b.StopTimer()
+	w.Discard()
 }
