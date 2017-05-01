@@ -12,6 +12,7 @@ func randomlocation(n int) game.Location {
 
 func BenchmarkSetBitGetBit(b *testing.B) {
 	l := NewLayer()
+	defer l.Discard()
 	sc := NewStackCursor(game.Location{})
 	li := sc.Add(l)
 	for i := 0; i < b.N; i++ {
@@ -24,6 +25,7 @@ func BenchmarkSetBitGetBit(b *testing.B) {
 func TestSetBitGetBit(t *testing.T) {
 	N := 100
 	l := NewLayer()
+	defer l.Discard()
 	sc := NewStackCursor(game.Location{})
 	li := sc.Add(l)
 	for i := 0; i < N; i++ {
@@ -40,6 +42,21 @@ func TestSetBitGetBit(t *testing.T) {
 		// verify this with Get
 		if (l.Get(c)&(1<<b) != 0) != !v {
 			t.Errorf("incorrect value read from %v", c)
+		}
+	}
+}
+
+func TestDirectedGetSet(t *testing.T) {
+	l := NewLayer()
+	defer l.Discard()
+	sc := NewStackCursor(game.Location{})
+	li := sc.Add(l)
+	for i := game.Direction(0); i < 8; i++ {
+		sc.DirectedSet(li, i, game.TileId(i))
+	}
+	for i := game.Direction(0); i < 8; i++ {
+		if got, want := sc.DirectedGet(li, i), game.TileId(i); got != want {
+			t.Error("want", want, "got", got)
 		}
 	}
 }

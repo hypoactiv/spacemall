@@ -362,6 +362,19 @@ func (sc *StackCursor) DirectedGet(l LayerIndex, d game.Direction) (v game.TileI
 	return b.Get(c)
 }
 
+// Set value of cursor's neighbor in direction 'd'
+func (sc *StackCursor) DirectedSet(l LayerIndex, d game.Direction, v game.TileId) {
+	c, dx, dy := sc.c.Step(d)
+	b := sc.b[l]
+	if dx != 0 || dy != 0 {
+		b = b.Step(dx, dy)
+		if b == nil {
+			b = sc.s[l].fetch(c.BlockId)
+		}
+	}
+	b.Set(c, v)
+}
+
 // Scans layer l in direction d for a non-zero tile
 func (sc *StackCursor) Scan(l LayerIndex, d game.Direction, maxDist int) (scanDist int) {
 	return sc.scan(l, d, maxDist, 0x7fffffff)
