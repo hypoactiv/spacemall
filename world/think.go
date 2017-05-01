@@ -1,7 +1,6 @@
 package world
 
 import (
-	"runtime"
 	"sync"
 )
 
@@ -28,9 +27,10 @@ func (w *World) Think() {
 		// No work units -- nothing to do
 		return
 	}
-	// Worker sub-function
+	// Worker closure
 	wgWorkers := sync.WaitGroup{}
 	worker := func(wuRunStart, wuRunEnd int, aa *ActionAccumulator) {
+		// Process workUnits between wuRunStart and wuRunEnd, inclusive
 		for i := wuRunStart; i <= wuRunEnd; i++ {
 			for _, action := range wuExe[i].Actions {
 				action(aa)
@@ -47,6 +47,7 @@ func (w *World) Think() {
 		if wuRunEnd < wuLen-1 {
 			wuExe[wuRunEnd+1].locked = false
 		}
+		aa.Close()
 		wgWorkers.Done()
 	}
 	// Collect the ActionAccumulators given to the workers here
@@ -56,10 +57,6 @@ func (w *World) Think() {
 	moreWork := true
 	for moreWork { // Loop until all workUnits are done
 		moreWork = false
-		// TODO remove
-		//for i, v := range wuExe {
-		//fmt.Println("wuExe", w.ticks, i, v.X, v.done, v.locked)
-		//}
 		// Find the start of a run of workUnits
 		wuRunStart := -1
 		wuRunEnd := 0
@@ -99,7 +96,7 @@ func (w *World) Think() {
 					break
 				}
 				actionCount += len(wuExe[wuRunEnd].Actions)
-				if actionCount > 10000 {
+				if actionCount > 100000 {
 					// Enough work for 1 worker, end of run
 					break
 				}
@@ -123,20 +120,33 @@ func (w *World) Think() {
 			wgWorkers.Add(1)
 			//fmt.Println("tick", w.Now(), "launcher worker", wuRunStart, wuRunEnd, actionCount)
 			go worker(wuRunStart, wuRunEnd, aa)
-		} else {
-			// no run found
+		} else { // wuRunStart == -1
+			// no run found, process any closed ActionAccumulators and wait
+			for i := range workerAAs {
+				if workerAAs[i] != nil && workerAAs[i].IsClosed() {
+					w.process(workerAAs[i])
+					ReleaseAA(workerAAs[i])
+					workerAAs[i] = nil
+				}
+			}
 			if moreWork {
-				// give workers a chance to work before looking for another run
-				runtime.Gosched()
+				// wait for the existing workers to finish, then find new runs
 				wgWorkers.Wait()
 			}
 		}
 	}
 	// moreWork == false
 	wgWorkers.Wait()
-	// All workunits are done, process ActionAccumulators
-	for _, aa := range workerAAs {
-		w.process(aa)
+	// All workunits are done, process remaining ActionAccumulators
+	for i := range workerAAs {
+		if workerAAs[i] != nil {
+			if !workerAAs[i].IsClosed() {
+				panic("unclosed AA")
+			}
+			w.process(workerAAs[i])
+			ReleaseAA(workerAAs[i])
+			workerAAs[i] = nil
+		}
 	}
 	// clear WU_EXECUTE for later reuse as WU_BUFFER
 	for k := range w.workUnits[WU_EXECUTE] {

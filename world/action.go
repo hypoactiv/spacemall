@@ -19,9 +19,13 @@ type ActionAccumulator struct {
 		Spawns []Entity
 		Deaths []EntityId
 	}
+	closed bool
 }
 
 func (aa *ActionAccumulator) AddAction(th ScheduledAction) {
+	if aa.closed {
+		panic("add to closed ActionAccumulator")
+	}
 	if th.At == aa.nextTick {
 		aa.NextTick = append(aa.NextTick, th)
 	} else if th.At > aa.nextTick {
@@ -30,6 +34,17 @@ func (aa *ActionAccumulator) AddAction(th ScheduledAction) {
 		fmt.Println(aa.nextTick, th.At)
 		panic("action scheduled for past")
 	}
+}
+
+func (aa *ActionAccumulator) Close() {
+	if aa.closed {
+		panic("closed already closed channel")
+	}
+	aa.closed = true
+}
+
+func (aa *ActionAccumulator) IsClosed() bool {
+	return aa.closed
 }
 
 func (aa *ActionAccumulator) Add(at game.Tick, do Action, bid game.BlockId) {
@@ -64,6 +79,7 @@ func AllocateAA(t game.Tick) (aa *ActionAccumulator) {
 		aa.NextTick = aa.NextTick[:0]
 		aa.LaterTicks = aa.LaterTicks[:0]
 		aa.E.Deaths = aa.E.Deaths[:0]
+		aa.closed = false
 	} else {
 		aa = new(ActionAccumulator)
 	}

@@ -4,6 +4,7 @@ import (
 	"jds/game"
 	"jds/game/layer"
 	"jds/game/world"
+	"sync"
 )
 
 const conwayLayer = 2
@@ -15,6 +16,14 @@ type ConwayCell struct {
 	l         game.Location
 	sc        *layer.StackCursor
 	spawntick game.Tick
+}
+
+var cellPool sync.Pool
+
+func init() {
+	cellPool.New = func() interface{} {
+		return new(ConwayCell)
+	}
 }
 
 func NewConwayCell(l game.Location) *ConwayCell {
@@ -56,6 +65,7 @@ func (t *ConwayCell) HitWall(d game.Direction) {
 func (t *ConwayCell) die(ta *world.ActionAccumulator) {
 	ta.Kill(t.id)
 	t.sc.Set(conwayLayer, 0)
+	cellPool.Put(t)
 }
 
 func (t *ConwayCell) Act(ta *world.ActionAccumulator) {
@@ -78,10 +88,10 @@ func (t *ConwayCell) Act(ta *world.ActionAccumulator) {
 		}
 		t.sc.Step(d)
 		if game.CountNonZero(t.sc.Look(conwayLayer)) == 3 {
-			ta.Spawn(&ConwayCell{
-				l:         nl,
-				spawntick: t.w.Now() + 1,
-			})
+			c := cellPool.Get().(*ConwayCell)
+			c.l = nl
+			c.spawntick = t.w.Now() + 1
+			ta.Spawn(c)
 		}
 		t.sc.Step(d.Reverse())
 	}
