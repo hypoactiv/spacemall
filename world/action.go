@@ -56,10 +56,16 @@ func (aa *ActionAccumulator) Add(at game.Tick, do Action, bid game.BlockId) {
 }
 
 func (aa *ActionAccumulator) Spawn(e Entity) {
+	if aa.closed {
+		panic("add to closed ActionAccumulator")
+	}
 	aa.E.Spawns = append(aa.E.Spawns, e)
 }
 
 func (aa *ActionAccumulator) Kill(e EntityId) {
+	if aa.closed {
+		panic("add to closed ActionAccumulator")
+	}
 	aa.E.Deaths = append(aa.E.Deaths, e)
 }
 
