@@ -117,10 +117,13 @@ func (w *World) CustomLayer(name string) (l *layer.Layer) {
 // Copies the Actions in 'aa' for next tick into into WU_BUFFER, and the
 // Actions for later ticks into w.actionSchedule
 //
-// Spawns and Kills the entities in aa.E
-func (w *World) process(aa *ActionAccumulator) {
+// Spawns and Kills the entities in aa.E, unless actionsOnly == true
+func (w *World) process(aa *ActionAccumulator, actionsOnly bool) {
 	if aa == nil {
 		return
+	}
+	if !aa.IsClosed() {
+		panic("tried to process open AA")
 	}
 	// Buffers a run of ScheduledActions that have the same BlockId.X
 	bufferRun := func(t []ScheduledAction) {
@@ -149,6 +152,7 @@ func (w *World) process(aa *ActionAccumulator) {
 	for _, v := range aa.LaterTicks {
 		w.actionSchedule.Schedule(v)
 	}
+	aa.LaterTicks = aa.LaterTicks[:0]
 	// Decompose aa.NextTick into slices of ScheduledActions with the same
 	// BlockId.X, and pass these slices to bufferRun(..) to be added to
 	// the appropriate workUnit
@@ -161,20 +165,26 @@ func (w *World) process(aa *ActionAccumulator) {
 	}
 	// Buffer final run of BlockId.X values
 	bufferRun(aa.NextTick[runStart:])
-	// Process entity spawns and deaths
-	for _, e := range aa.E.Spawns {
-		w.Spawn(e)
-	}
-	for _, eid := range aa.E.Deaths {
-		// TODO this is a hack. at least make a Kill funcion ala Spawn
-		e := w.Entities[eid]
-		// Sanity check
-		if EntityId(w.EntityIds.Get(e.Location())) != eid {
-			panic("wrong entity location")
+	aa.NextTick = aa.NextTick[:0]
+	if !actionsOnly {
+		// Process entity spawns and deaths
+		for i := range aa.E.Spawns {
+			w.Spawn(aa.E.Spawns[i])
+			aa.E.Spawns[i] = nil
 		}
-		w.EntityIds.Set(e.Location(), 0)
-		delete(w.Entities, eid)
-		//panic("entity deaths not implemented")
+		aa.E.Spawns = aa.E.Spawns[:0]
+		for _, eid := range aa.E.Deaths {
+			// TODO this is a hack. at least make a Kill funcion ala Spawn
+			e := w.Entities[eid]
+			// Sanity check
+			if EntityId(w.EntityIds.Get(e.Location())) != eid {
+				panic("wrong entity location")
+			}
+			w.EntityIds.Set(e.Location(), 0)
+			delete(w.Entities, eid)
+			//panic("entity deaths not implemented")
+		}
+		aa.E.Deaths = aa.E.Deaths[:0]
 	}
 }
 
@@ -1211,7 +1221,8 @@ func (w *World) Spawn(e Entity) EntityId {
 		},
 		l.BlockId,
 	)
-	w.process(taTmp)
+	taTmp.Close()
+	w.process(taTmp, false)
 	ReleaseAA(taTmp)
 	return id
 }

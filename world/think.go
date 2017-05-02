@@ -17,7 +17,8 @@ func (w *World) Think() {
 		}
 		taTmp.AddAction(w.actionSchedule.Next())
 	}
-	w.process(taTmp)
+	taTmp.Close()
+	w.process(taTmp, false)
 	ReleaseAA(taTmp)
 	// Swap buffer and execute work units
 	w.workUnits[WU_BUFFER], w.workUnits[WU_EXECUTE] = w.workUnits[WU_EXECUTE], w.workUnits[WU_BUFFER]
@@ -44,21 +45,12 @@ func (w *World) Think() {
 		}
 		// assigned workUnits are done, now unlock
 		if wuRunStart > 0 {
-			if !wuExe[wuRunStart-1].locked {
-				panic("unexpected lock state")
-			}
 			wuExe[wuRunStart-1].locked = false
 		}
 		for i := wuRunStart; i <= wuRunEnd; i++ {
-			if !wuExe[i].locked {
-				panic("unexpected lock state")
-			}
 			wuExe[i].locked = false
 		}
 		if wuRunEnd < wuLen-1 {
-			if !wuExe[wuRunEnd+1].locked {
-				panic("unexpected lock state")
-			}
 			wuExe[wuRunEnd+1].locked = false
 		}
 		aa.Close()
@@ -78,7 +70,7 @@ func (w *World) Think() {
 		for j := 0; j < wuLen; j++ { //i, wu := range wuExe {
 			i = ((i + 1) % wuLen)
 			wu := &wuExe[i]
-			if wu.done {
+			if !wu.locked && wu.done {
 				continue
 			}
 			// at least one workUnit is not done
@@ -110,26 +102,43 @@ func (w *World) Think() {
 		if wuRunStart != -1 {
 			actionCount := len(wuExe[wuRunStart].Actions)
 			// Found the start of a run of workUnits, now find its end
+			// Initial condition:
+			// wuExe[wuRunStart] not done or locked,
+			// and wuExe[wuRunStart+1] not locked (if it exists)
+			// wuRunEnd == wuRunStart
 			for wuRunEnd = wuRunStart; wuRunEnd < wuLen; wuRunEnd++ {
+				// Pre-condition:
+				// wuExe[wuRunEnd] not done or locked, and wuExe[wuRunEnd+1] not
+				// locked (if it exists)
 				if wuRunEnd == wuLen-1 {
 					// Last column, end of run
 					break
 				}
-				// Not last column, check right column
-				if wuExe[wuRunEnd+1].locked || wuExe[wuRunEnd+1].done {
-					// Right column is done or locked, end of run
+				// Not last column
+				if wuExe[wuRunEnd+1].done {
+					// Right column is done, end of run
 					break
 				}
+				// wuExe[wuRunEnd+1] not done   (1)
+				if wuRunEnd < wuLen-2 && wuExe[wuRunEnd+2].locked {
+					// 2 Columns to right is locked, end of run
+					break
+				}
+				// wuExe[wuRunEnd+2] not locked, if it exists    (2)
 				actionCount += len(wuExe[wuRunEnd].Actions)
-				if actionCount > 300 {
+				if actionCount > 600 {
 					// Enough work for 1 worker, end of run
 					break
 				}
+				// Post-condition:
+				// wuExe[wuRunEnd+1] not done by (1), and not locked by pre-condition
+				// wuExe[wuRunEnd+2] not locked, if it exists, by (2)
+				// Increment wuRunEnd and pre-condition holds.
 			}
 			w.ThinkStats.Actions += actionCount
-			// wuRunEnd < wuLen, and all work units between wuRenStart and
-			// wuRunEnd inclusive can and will now be processed by a new worker.
-			// Lock workUnits, worker responsible for unlocking
+			// wuExe[i] is not done for wuRunStart <= i <= wuRunEnd
+			// wuExe[i] is not locked for wuRunStart-1 <= i <= wuRunEnd+1, 0 <= i < wuLen
+			// Lock this run of workUnits and launch a worker
 			if wuRunStart > 0 {
 				wuExe[wuRunStart-1].locked = true
 			}
@@ -151,9 +160,7 @@ func (w *World) Think() {
 			// no run found, process any closed ActionAccumulators and wait
 			for i := range workerAAs {
 				if workerAAs[i] != nil && workerAAs[i].IsClosed() {
-					w.process(workerAAs[i])
-					ReleaseAA(workerAAs[i])
-					workerAAs[i] = nil
+					w.process(workerAAs[i], true) // cannot process entities until end-of-tick
 				}
 			}
 			if moreWork {
@@ -164,13 +171,14 @@ func (w *World) Think() {
 	}
 	// moreWork == false
 	wgWorkers.Wait()
+	// end-of-tick
 	// All workunits are done, process remaining ActionAccumulators
 	for i := range workerAAs {
 		if workerAAs[i] != nil {
 			if !workerAAs[i].IsClosed() {
 				panic("unclosed AA")
 			}
-			w.process(workerAAs[i])
+			w.process(workerAAs[i], false)
 			ReleaseAA(workerAAs[i])
 			workerAAs[i] = nil
 		}
