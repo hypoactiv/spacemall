@@ -35,26 +35,21 @@ func BenchmarkRandomWalker(b *testing.B) {
 }
 
 func TestRandomWalker(t *testing.T) {
-	N := 100
+	N := 1000
+	rtN := int(math.Sqrt(float64(N)))
 	w := world.NewWorld(0)
 	E := make([]RandomWalker, N)
 	cursor := game.Location{}
-	w.DrawBox(cursor.JustOffset(-2, -2), cursor.JustOffset(N+2, 20))
+	w.DrawBox(cursor.JustOffset(-2, -2), cursor.JustOffset(2*rtN+2, 2*rtN+2))
 	for i := 0; i < N; i++ {
-		E[i].l = cursor
+		E[i].l = cursor.JustOffset(rand.Intn(2*rtN), rand.Intn(2*rtN))
 		if eid := w.Spawn(&E[i]); eid == world.ENTITYID_INVALID {
-			t.Error("unable to spawn", i)
+			i--
+			continue
 		}
-		cursor = cursor.JustStep(game.RIGHT)
 	}
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 100; i++ {
 		w.Think()
-	}
-	for i := 0; i < N; i++ {
-		if E[i].spawned != 1 {
-			t.Error("wrong event count", i, E[i].spawned)
-		}
-		//t.Log(E[i].touched, E[i].hitWall)
 	}
 	if numSteps == 0 {
 		t.Error("no steps taken")
