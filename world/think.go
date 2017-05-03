@@ -70,22 +70,21 @@ func (w *World) Think() {
 		for j := 0; j < wuLen; j++ { //i, wu := range wuExe {
 			i = ((i + 1) % wuLen)
 			wu := &wuExe[i]
-			if !wu.locked && wu.done {
+			if wu.done {
 				continue
 			}
-			// at least one workUnit is not done
-			moreWork = true
+			moreWork = true // at least one workUnit is not done
 			if wu.locked {
 				continue
 			}
-			if wu.done { // if column was just unlocked, done status may have changed since previous check
+			if wu.done { // must re-check done flag after checking locked, as status may have changed from above check
 				continue
 			}
 			if len(wu.Actions) == 0 {
 				wu.done = true
 				continue
 			}
-			// Can this workUnit be processed now?
+			// Can wuExe[i] be processed now? Must be able to lock left and right neighboring columns
 			if i > 0 && wuExe[i-1].locked == true {
 				// No, workUnit for left neighboring column is locked
 				continue
@@ -114,8 +113,8 @@ func (w *World) Think() {
 					// Last column, end of run
 					break
 				}
-				// Not last column
-				if wuExe[wuRunEnd+1].done {
+				// Not last column, wuRunEnd+1 exists and is not locked
+				if wuExe[wuRunEnd+1].done { // Okay to read done flag, since wuRunEnd+1 is not locked
 					// Right column is done, end of run
 					break
 				}
