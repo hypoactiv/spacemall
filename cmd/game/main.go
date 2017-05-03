@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	WIDTH  = 800
-	HEIGHT = 600
-	FPS    = 20
+	WIDTH    = 800
+	HEIGHT   = 600
+	TICKRATE = 1000 // Target World ticks/second
 )
 
 var logstep int
@@ -114,7 +114,7 @@ func NewTileEngine(tileset string, W *world.World, w, h uint) (te *TileEngine, e
 		winh:         h,
 		Overlay:      layer.NewLayer(),
 		overlayColor: sdl.Color{255, 0, 0, 128},
-		Scale:        1,
+		Scale:        0.2,
 	}
 	te.background = te.NewRenderLayer(&renderBackground{te})
 	te.overlay = te.NewRenderLayer(&renderOverlay{te})
@@ -439,6 +439,9 @@ func (te *TileEngine) Interactive() (err interface{}) {
 	var last game.Location
 	var toolMode int
 	tool := toolset[toolMode].Create(te.w)
+	lastStats := time.Now()
+	lastStatTick := te.w.Now()
+	te.w.Think()
 	for !exit {
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch event := event.(type) {
@@ -483,16 +486,29 @@ func (te *TileEngine) Interactive() (err interface{}) {
 		}
 		startFrame := time.Now()
 		te.Render()
-		// FPS limit
+		// Think at least once per frame, and possibly more to hit TICKRATE
+		// Target
 		mult := 1
 		//startThink := time.Now()
 		te.w.Think()
-		for time.Since(startFrame) < 50*time.Millisecond && mult < 1 {
+		te.w.Think()
+		for time.Since(startFrame) < 50*time.Millisecond && mult < TICKRATE/20 {
+			te.w.Think()
 			te.w.Think()
 			mult++
 		}
-		//fmt.Println("frameskip", mult, "think/s", float64(mult)/time.Since(startFrame).Seconds(), "avg think time", time.Since(startThink)/time.Duration(mult), "num entities", len(te.w.Entities))
-		time.Sleep(time.Until(startFrame.Add(50 * time.Millisecond)))
+		if time.Since(lastStats) > 1*time.Second {
+			ticks := te.w.Now() - lastStatTick
+			fmt.Println("Avg workers per tick:", float32(te.w.ThinkStats.Workers)/float32(ticks))
+			fmt.Println("Avg Actions per worker:", float32(te.w.ThinkStats.Actions)/float32(te.w.ThinkStats.Workers))
+			fmt.Println("Avg time per Think:", te.w.ThinkStats.Elapsed/time.Duration(ticks))
+			fmt.Println("Avg Actions per second:", float64(te.w.ThinkStats.Actions)/te.w.ThinkStats.Elapsed.Seconds())
+			te.w.ThinkStats.Actions = 0
+			te.w.ThinkStats.Workers = 0
+			te.w.ThinkStats.Elapsed = 0
+			lastStatTick = te.w.Now()
+			lastStats = time.Now()
+		}
 	}
 	return
 }

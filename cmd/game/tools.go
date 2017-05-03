@@ -450,8 +450,8 @@ func (t *ConwayTool) Preview(l game.Location) (c <-chan game.Location, color sdl
 }
 
 func (t *ConwayTool) Click(l game.Location) game.ModMap {
-	for i := 0; i < 50; i++ {
-		l := l.JustOffset(rand.Intn(20)-10, rand.Intn(20)-10)
+	for i := 0; i < 800; i++ {
+		l := l.JustOffset(rand.Intn(50)-10, rand.Intn(50)-10)
 		t.w.Spawn(entity.NewConwayCell(l))
 	}
 	return nil
