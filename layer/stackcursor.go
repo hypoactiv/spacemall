@@ -508,3 +508,8 @@ func (sc *StackCursor) scan(l LayerIndex, d game.Direction, maxDist int, mask ga
 		c.BlockId = c.BlockId.Step(d)
 	}
 }
+
+// Debug
+func (sc *StackCursor) Depth() int {
+	return len(sc.s)
+}
