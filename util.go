@@ -63,33 +63,48 @@ func (m ModMap) Merge(n ModMap) {
 	}
 }
 
+// Tracks the minimum among multiple observed values, and the argument
+// associated with that value
 type Min struct {
 	min      int
 	argmin   interface{}
 	feasible bool
 }
 
-func (m *Min) Observe(arg interface{}, x int) {
-	if x < m.min || !m.feasible {
+// Observe an argument and its value
+func (m *Min) Observe(arg interface{}, value int) {
+	if value < m.min || !m.feasible {
+		// New minimum
 		m.feasible = true
-		m.min = x
+		m.min = value
 		m.argmin = arg
 	}
 }
 
+// Returns true if the Min has observed at least one value
 func (m *Min) Feasible() bool {
 	return m.feasible
 }
 
-func (m *Min) ImprovedBy(x int) bool {
-	return x < m.min || !m.feasible
+// Returns true if the minimum will be improved by this value
+func (m *Min) ImprovedBy(value int) bool {
+	return value < m.min || !m.feasible
 }
 
+// Returns the argument associated with the miniumum observed (arg,value) pairs
+//
+// Returns nil if there have been no observations
 func (m *Min) Argmin() interface{} {
 	return m.argmin
 }
 
+// Returns the minimum value of the observed (arg,value) pairs
+//
+// Panics if there have not been any observations
 func (m *Min) Min() int {
+	if !m.feasible {
+		panic("no observed value to return")
+	}
 	return m.min
 }
 

@@ -1,4 +1,3 @@
-// Types and constants
 package game
 
 import (
@@ -8,15 +7,17 @@ import (
 type Tick int
 
 const (
-	// Edge length of square block in tiles
+	// The game world is divided into square blocks with edge length BLOCK_SIZE
 	BLOCK_SIZE = 32
 )
 
+// The data type of a single value stored in a Layer
 type TileId int32
 
-// A Direction is one of Up, Down, Left, or Right
+// A Direction is encodes one of the 8 directions, or no movement
 type Direction int8
 
+// Directions
 const (
 	RIGHT = iota
 	UP
@@ -30,6 +31,7 @@ const (
 	NONE
 )
 
+// Reverses a direction, e.g. Direction(LEFT).Reverse() == RIGHT
 func (d Direction) Reverse() Direction {
 	return d ^ 0x3
 }
