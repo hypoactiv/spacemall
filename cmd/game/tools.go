@@ -9,7 +9,6 @@ import (
 	"jds/game/world"
 	"jds/game/world/path"
 	"math/rand"
-	"time"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -48,12 +47,12 @@ var toolset = []struct {
 	Create ToolCreator
 }{
 	{
-		Name:   "Conway",
-		Create: NewConwayTool,
-	},
-	{
 		Name:   "RouteWalker",
 		Create: NewRouteWalkerTool,
+	},
+	{
+		Name:   "Conway",
+		Create: NewConwayTool,
 	},
 	{
 		Name:   "Point",
@@ -399,32 +398,14 @@ func (t *RouteWalkerTool) RightClick(l game.Location) game.ModMap {
 		return nil
 	}
 	sc := layer.NewStackCursor(l)
-	intentionIndex := sc.Add(t.w.CustomLayer("RouteWalkerIntentions"))
-spawnNext:
-	for i := 0; i < 10; i++ {
-		l := l.JustOffset(rand.Intn(20)-10, rand.Intn(20)-10)
+	for i := 0; i < 1000; i++ {
+		l := l.JustOffset(rand.Intn(100)-50, rand.Intn(100)-50)
 		sc.MoveTo(l)
-		//a := t.a.JustOffset(rand.Intn(20)-10, rand.Intn(20)-10)
 		if myrid := t.w.RoomIds.Get(l); myrid != rid {
-			i--
+			// only spawn in room 'rid'
 			continue
 		}
-		if sc.Get(intentionIndex) != 0 {
-			i--
-			continue
-		}
-		for _, v := range sc.Look(intentionIndex) {
-			if v != 0 {
-				// don't spawn here, collision possible in the future
-				i--
-				continue spawnNext
-			}
-		}
-		fmt.Println("start spawn", t.w.Now())
 		t.w.Spawn(entity.NewRouteWalker(l, t.a))
-		thinkStart := time.Now()
-		t.w.Think()
-		fmt.Println("think took", time.Since(thinkStart))
 	}
 	return nil
 }
