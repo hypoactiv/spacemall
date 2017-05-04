@@ -62,22 +62,20 @@ func (f *layerBlock) Step(x, y int) *layerBlock {
 	return f
 }
 
-var (
-	blockPool []*layerBlock
-)
+// layerBlock Pool
+var blockPool sync.Pool
 
 func releaseBlock(b *layerBlock) {
-	blockPool = append(blockPool, b)
+	blockPool.Put(b)
 }
 
 func allocateBlock() (b *layerBlock) {
-	last := len(blockPool) - 1
-	if last >= 0 {
-		b, blockPool = blockPool[last], blockPool[:last]
-		*b = layerBlock{} // Zero memory
-	} else {
-		b = new(layerBlock)
+	var ok bool
+	if b, ok = blockPool.Get().(*layerBlock); !ok {
+		return new(layerBlock)
 	}
+	// Zero recycled block
+	*b = layerBlock{}
 	return
 }
 
