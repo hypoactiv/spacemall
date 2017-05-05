@@ -3,7 +3,9 @@ package path
 import (
 	"jds/game"
 	"jds/game/world"
+	"jds/game/world/generate"
 	"math/rand"
+	"sync"
 	"testing"
 )
 
@@ -160,4 +162,58 @@ func BenchmarkRandomWalkAroundRoom(b *testing.B) {
 		ul = ul.JustOffset(rand.Intn(N-4)+1, rand.Intn(N-4)+1)
 		NewRoute(w, ul, lr)
 	}
+}
+
+func randomRoomLoc(r *world.Room) (loc game.Location) {
+	index := rand.Intn(r.Area)
+	c := 0
+	loc = game.Location{}
+	r.Interior(func(rm *game.RowMask, unused []game.TileId) bool {
+		for i := 0; i < rm.Width(); i++ {
+			m, next := rm.Mask(i)
+			if m == false {
+				i += next - 1
+				continue
+			}
+			if c == index {
+				loc, _, _ = rm.Left.FarStep(game.RIGHT, i)
+				return false
+			}
+			c++
+		}
+		return true
+	})
+	return
+}
+
+func TestGridWorldWalk(t *testing.T) {
+	w := generate.NewGridWorld(10, 10)
+	m := game.Min{}
+	// find largest room
+	for _, r := range w.Rooms {
+		m.Observe(r, -r.Area)
+	}
+	largest := m.Argmin().(*world.Room)
+	dest := randomRoomLoc(largest)
+	wg := sync.WaitGroup{}
+	N := 4
+	wg.Add(N)
+	for i := 0; i < N; i++ {
+		go func() {
+			defer wg.Done()
+			largest.Interior(func(rm *game.RowMask, unused []game.TileId) bool {
+				for i := 0; i < rm.Width(); i++ {
+					m, next := rm.Mask(i)
+					if m == false {
+						i += next - 1
+						continue
+					}
+					cursor, _, _ := rm.Left.FarStep(game.RIGHT, i)
+					NewRoute(w, cursor, dest)
+				}
+				return true
+			})
+		}()
+	}
+	wg.Wait()
 }
