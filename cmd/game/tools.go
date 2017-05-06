@@ -282,16 +282,6 @@ func (t TreeDebugTool) Preview(l game.Location) (<-chan game.Location, sdl.Color
 			for rid, d := range n.RoomIds {
 				room := t.w.Rooms[rid]
 				fmt.Println("linkage rid", rid, "direction", d, "area", room.Area)
-				room.Interior(func(rm *game.RowMask, unused []game.TileId) bool {
-					for i := 0; i < rm.Width(); i++ {
-						paint, _ := rm.Mask(i)
-						if paint {
-							c <- rm.Left
-						}
-						rm.Left, _, _ = rm.Left.Right()
-					}
-					return true
-				})
 			}
 			for n != nil {
 				c <- n.L

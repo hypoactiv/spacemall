@@ -176,6 +176,10 @@ func (w *World) process(aa *ActionAccumulator, actionsOnly bool) {
 		for _, eid := range aa.E.Deaths {
 			// TODO this is a hack. at least make a Kill funcion ala Spawn
 			e := w.Entities[eid]
+			if e == nil {
+				// already dead?
+				continue
+			}
 			// Sanity check
 			if EntityId(w.EntityIds.Get(e.Location())) != eid {
 				panic("wrong entity location")
@@ -326,7 +330,7 @@ func computeLeftAndRightMost(a, b, stop *WallTreeNode) (left []game.Location, wi
 				r[y-yMin] = x - xMin + 1
 				right[y-yMin] = n.L
 			}
-			width[y-yMin] = (r[y-yMin] + xMin - 1) - (l[y-yMin] + xMax + 1)
+			width[y-yMin] = (r[y-yMin] + xMin - 1) - (l[y-yMin] + xMax + 1) + 1
 			if width[y-yMin] > maxWidth {
 				maxWidth = width[y-yMin]
 			}
@@ -481,7 +485,7 @@ func (w *World) fsck() {
 		rid := RoomId(rid)
 		r := w.Rooms[RoomId(rid)]
 		interiorArea := 0
-		r.Interior(func(rm *game.RowMask, ridRow []game.TileId) bool {
+		r.paint(func(rm *game.RowMask, ridRow []game.TileId) bool {
 			// sanity check
 			if rm.Width() != len(ridRow) {
 				panic("interior error")
@@ -562,10 +566,10 @@ func (w *World) fsck() {
 	}
 }
 
-// Sets the RoomId of all Interior tiles of r to 0, and updates all connected
+// Sets the RoomId of all interior tiles of r to 0, and updates all connected
 // doors
 func (r *Room) clear(m game.ModMap) {
-	r.Interior(func(rm *game.RowMask, ridRow []game.TileId) bool {
+	r.paint(func(rm *game.RowMask, ridRow []game.TileId) bool {
 		m.AddRowMask(rm)
 		r.w.RoomIds.SetRowMask(rm, 0, m)
 		return true
@@ -596,7 +600,7 @@ func (w *World) changeRoomId(start game.Location, old, new RoomId) {
 		})
 	}
 	r := w.Rooms[old]
-	r.Interior(func(rm *game.RowMask, rid []game.TileId) bool {
+	r.paint(func(rm *game.RowMask, rid []game.TileId) bool {
 		for i := 0; i < rm.Width(); i++ {
 			l, _ := rm.Mask(i)
 			if l {
@@ -677,7 +681,7 @@ func (w *World) deleteFromWallTree(locationToDelete game.Location, m game.ModMap
 	for rid := range nbd_rooms {
 		room := w.Rooms[rid]
 		if room != nil {
-			room.recolor(m)
+			room.init(m)
 		}
 	}
 	// After deleting a wall, some rooms may be merged.
@@ -1037,7 +1041,7 @@ func (w *World) newRoom(lnp *WallTreeNode, lnpd game.Direction, m game.ModMap) *
 	}
 	lnp.RoomIds[r.id] = lnpd
 	w.Rooms[r.id] = r
-	r.recolor(m)
+	r.init(m)
 	return r
 }
 
@@ -1084,7 +1088,7 @@ func (w *World) checkRootContinuty(n *WallTreeNode) {
 // Computes the y (vertical) component of a vector tangent to the curve
 // bounding a room, returning the result in tangentLayer. A value of 2 or -2
 // indicates vertical tangent. This is used to determine tiles interior and
-// exterior to the curve in Room.Interior(...)
+// exterior to the curve in Room.paint(...)
 //
 // The approximate area inside the curve is computed via Stokes' theorem and
 // returned in approxArea. This is approximate area because it includes the
@@ -1094,7 +1098,7 @@ func (w *World) checkRootContinuty(n *WallTreeNode) {
 func computeTangent(a, b, stop *WallTreeNode) (tangentLayer *layer.Layer, approxArea int) {
 	clear := func(n *WallTreeNode) {
 		for {
-			n.t = 0
+			n.t = 0 // BUG not concurrent
 			if n == stop {
 				break
 			}

@@ -8,9 +8,7 @@ import (
 	"jds/game"
 	"jds/game/layer"
 	"jds/game/world"
-	"jds/runstat"
 	"sync"
-	"time"
 )
 
 // Layer indices in the stack
@@ -145,13 +143,11 @@ func (w *weightedWalker) jump(finish game.Location) (bool, int) {
 }
 
 func allocate() (w *weightedWalker) {
-	nAlloc++
 	w = pool.Get().(*weightedWalker)
 	return w
 }
 
 func releaseAll(w *[]*weightedWalker) {
-	nRelease += len(*w)
 	for _, ww := range *w {
 		pool.Put(ww)
 	}
@@ -159,7 +155,6 @@ func releaseAll(w *[]*weightedWalker) {
 }
 
 func release(w **weightedWalker) {
-	nRelease++
 	pool.Put(*w)
 	*w = nil
 }
@@ -194,8 +189,6 @@ func (lh *walkerHeap) Swap(i, j int) {
 	lh.l[i], lh.l[j] = lh.l[j], lh.l[i]
 }
 
-var nInits, nRelease, nAlloc int
-
 type RouteSegment struct {
 	Length uint
 	D      game.Direction
@@ -228,7 +221,6 @@ func (r Route) Len() (len int) {
 
 // A* with Jump Points (http://grastien.net/ban/articles/hg-aaai11.pdf)
 func NewRoute(w *world.World, start, finish game.Location) (route Route) {
-	defer runstat.Record(time.Now(), "NewRoute")
 	if start == finish {
 		return
 	}
@@ -255,7 +247,6 @@ func NewRoute(w *world.World, start, finish game.Location) (route Route) {
 	openSet := layer.NewLayer()
 	defer openSet.Discard()
 	initWW := func(ww *weightedWalker, l game.Location) {
-		nInits++
 		*ww = weightedWalker{
 			sc:      layer.NewStackCursor(l),
 			SegNode: -1,
@@ -411,13 +402,13 @@ func NewRoute(w *world.World, start, finish game.Location) (route Route) {
 				for i, p := range openSetHeap.l {
 					// TODO this sucks, make it faster
 					if p.sc.Cursor() == l {
-						// Notify heap of updated weight
 						index = i
 						nWalkers = p
 						break
 					}
 				}
 				if index == -1 {
+					fmt.Println("len", openSetHeap.Len())
 					panic("can't find tile in priority queue")
 				}
 				// nWalkers now contains the StackWalker from the previous visit to this neighbor of current
@@ -431,6 +422,7 @@ func NewRoute(w *world.World, start, finish game.Location) (route Route) {
 					},
 					P: current.SegNode,
 				}
+				// Notify heap of updated weight
 				heap.Fix(openSetHeap, index)
 			}
 		}

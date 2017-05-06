@@ -61,9 +61,9 @@ func (rm *RowMask) Mask(i int) (bool, int) {
 	return v, rm.width - i*/
 }
 
-func NewRowMask(width int, left Location) *RowMask {
+// TODO consider not using pointers for these
+func NewRowMask(width int) *RowMask {
 	return &RowMask{
-		Left:  left,
 		mask:  make([]int, 1, width), // TODO experiment
 		width: 0,
 		last:  false,

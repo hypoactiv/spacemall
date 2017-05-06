@@ -17,7 +17,7 @@ func TestLocationStep(t *testing.T) {
 
 func TestRowMask(t *testing.T) {
 	N := 1000
-	rm := NewRowMask(N, Location{})
+	rm := NewRowMask(N)
 	truth := make([]bool, N)
 	for i := range truth {
 		if i >= N/2 {
@@ -35,8 +35,7 @@ func TestRowMask(t *testing.T) {
 
 func TestRowMaskDist(t *testing.T) {
 	N := 1000
-	cursor := Location{}
-	rm := NewRowMask(N, cursor)
+	rm := NewRowMask(N)
 	truth := make([]bool, N)
 	for i := range truth {
 		if rand.Intn(30) == 1 {
@@ -58,7 +57,7 @@ func TestRowMaskDist(t *testing.T) {
 
 func TestRowMaskRandom(t *testing.T) {
 	N := 1000
-	rm := NewRowMask(N, Location{})
+	rm := NewRowMask(N)
 	truth := make([]bool, N)
 	for i := range truth {
 		if rand.Intn(2) == 1 {
@@ -76,7 +75,7 @@ func TestRowMaskRandom(t *testing.T) {
 func BenchmarkRowMaskRandom(b *testing.B) {
 	b.StopTimer()
 	N := 1000
-	rm := NewRowMask(N, Location{})
+	rm := NewRowMask(N)
 	truth := make([]bool, N)
 	for i := range truth {
 		if rand.Intn(2) == 1 {

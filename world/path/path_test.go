@@ -10,7 +10,6 @@ import (
 )
 
 func BenchmarkZigZagRoute(b *testing.B) {
-	defer b.Logf("Done N:%d init:%d alloc:%d, release:%d leak:%d", b.N, nInits, nAlloc, nRelease, nAlloc-nRelease)
 	b.StopTimer()
 	w := world.NewWorld(0)
 	N := 400
@@ -168,7 +167,7 @@ func randomRoomLoc(r *world.Room) (loc game.Location) {
 	index := rand.Intn(r.Area)
 	c := 0
 	loc = game.Location{}
-	r.Interior(func(rm *game.RowMask, unused []game.TileId) bool {
+	r.Interior(func(rm *game.RowMask) bool {
 		for i := 0; i < rm.Width(); i++ {
 			m, next := rm.Mask(i)
 			if m == false {
@@ -187,6 +186,7 @@ func randomRoomLoc(r *world.Room) (loc game.Location) {
 }
 
 func TestGridWorldWalk(t *testing.T) {
+	interiorLocs := [500]game.Location{}
 	w := generate.NewGridWorld(10, 10)
 	m := game.Min{}
 	// find largest room
@@ -195,24 +195,18 @@ func TestGridWorldWalk(t *testing.T) {
 	}
 	largest := m.Argmin().(*world.Room)
 	dest := randomRoomLoc(largest)
+	for i := range interiorLocs {
+		interiorLocs[i] = randomRoomLoc(largest)
+	}
 	wg := sync.WaitGroup{}
-	N := 4
+	N := 200
 	wg.Add(N)
 	for i := 0; i < N; i++ {
 		go func() {
 			defer wg.Done()
-			largest.Interior(func(rm *game.RowMask, unused []game.TileId) bool {
-				for i := 0; i < rm.Width(); i++ {
-					m, next := rm.Mask(i)
-					if m == false {
-						i += next - 1
-						continue
-					}
-					cursor, _, _ := rm.Left.FarStep(game.RIGHT, i)
-					NewRoute(w, cursor, dest)
-				}
-				return true
-			})
+			for i := range interiorLocs {
+				NewRoute(w, interiorLocs[i], dest)
+			}
 		}()
 	}
 	wg.Wait()

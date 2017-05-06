@@ -52,16 +52,15 @@ func (r *Room) LinkingNode() (n WallTreeNode) {
 }
 
 // Set RoomId for all interior tiles
-func (r *Room) recolor(m game.ModMap) { // BUG nothing being done with m?
+func (r *Room) init(m game.ModMap) {
 	var room *Room
 	r.Area = 0
 	replacing := make(map[RoomId]int)
 	replacingRid := RoomId(ROOMID_INVALID)
-	roRids := r.w.RoomIds // TODO remove
 	seenDids := make(map[DoorId]struct{})
 	// Iterate over rows of the room
-	r.Interior(func(rm *game.RowMask, rid []game.TileId) bool {
-		// Color a row of the room
+	r.paint(func(rm *game.RowMask, rid []game.TileId) bool {
+		// Set RoomId of a row of the room
 		runLength := 0 // Run length of common RoomIds being replaced with r.id
 		cursor := rm.Left
 		// Look for doors on this row, and remove them from their original rooms
@@ -130,7 +129,8 @@ func (r *Room) recolor(m game.ModMap) { // BUG nothing being done with m?
 				cursor, _, _ = cursor.Offset(skip, 0)
 			}
 		}
-		roRids.SetRowMask(rm, game.TileId(r.id), m)
+		// Set all tiles in RowMask rm to have RoomId r.id
+		r.w.RoomIds.SetRowMask(rm, game.TileId(r.id), m)
 		// recycle rid slice to load DoorId's in this row
 		return true
 	})
@@ -206,14 +206,36 @@ func (r *Room) IsNonEmpty() (nonempty bool, loc game.Location) {
 	panic("no interior tile found")
 }
 
-type InteriorFunction func(*game.RowMask, []game.TileId) bool
+// Iterate f over thw rows of 'r'
+func (r *Room) Interior(f func(*game.RowMask) bool) {
+	n1 := r.LinkingNode()
+	n2 := r.w.WallNodes[n1.L]
+	ca := commonAncestor(&n1, n2)
+	left, width, maxWidth := computeLeftAndRightMost(&n1, n2, ca)
+	ridRow := make([]game.TileId, maxWidth)
+	rowMask := game.NewRowMask(maxWidth)
+	sc := layer.NewStackCursor(left[0])
+	liRids := sc.Add(r.w.RoomIds)
+	for i, l := range left {
+		rowMask.Reset()
+		rowMask.Left = l
+		sc.MoveTo(l)
+		sc.GetRow(liRids, ridRow[:width[i]])
+		for j := 0; j < width[i]; j++ {
+			rowMask.Append(RoomId(ridRow[j]) == r.id)
+		}
+		if !f(rowMask) {
+			break
+		}
+	}
+}
 
-// Iterates the function f over the rooms of Room r. The arguments passed to f
+// Iterates the function f over the tiles of Room r. The arguments passed to f
 // are a RowMask describing the tiles of the current row belonging to Room r,
 // and an []int containing the original RoomId's stored in the row. This slice
 // is not []RoomId so that it can be reused to read other data from the
 // World.
-func (r *Room) Interior(f InteriorFunction) {
+func (r *Room) paint(f func(*game.RowMask, []game.TileId) bool) {
 	// These are the nodes that were discovered in addToWallTree, when r was created
 	n1 := r.LinkingNode()
 	n2 := r.w.WallNodes[n1.L]
@@ -238,10 +260,10 @@ func (r *Room) Interior(f InteriorFunction) {
 	liTangent := sc.Add(tangentLayer)
 	liRids := sc.Add(r.w.RoomIds)
 	// Allocate row buffers
-	wallRow := make([]game.TileId, maxWidth+1) // BUG computeLeftAndRight should return maxWidth+1
-	tangentRow := make([]game.TileId, maxWidth+1)
-	ridRow := make([]game.TileId, maxWidth+1)
-	rowMask := game.NewRowMask(maxWidth+1, game.Location{})
+	wallRow := make([]game.TileId, maxWidth)
+	tangentRow := make([]game.TileId, maxWidth)
+	ridRow := make([]game.TileId, maxWidth)
+	rowMask := game.NewRowMask(maxWidth)
 	for y, leftmost := range left {
 		var existingRoom *Room
 		rowMask.Reset()
@@ -254,13 +276,13 @@ func (r *Room) Interior(f InteriorFunction) {
 			panic("0width row")
 		}
 		sc.MoveTo(leftmost)
-		sc.GetRow(liWalls, wallRow[:width[y]+1])
-		sc.GetRow(liTangent, tangentRow[:width[y]+1])
-		sc.GetRow(liRids, ridRow[:width[y]+1])
+		sc.GetRow(liWalls, wallRow[:width[y]])
+		sc.GetRow(liTangent, tangentRow[:width[y]])
+		sc.GetRow(liRids, ridRow[:width[y]])
 		//rgWalls.GetRow(leftmost, wallRow[:width[y]+1]) //  BUG nuke these +1's
 		//rgTangent.GetRow(leftmost, tangentRow[:width[y]+1])
 		//rgRids.GetRow(leftmost, ridRow[:width[y]+1])
-		for i := 0; i <= width[y]; i++ {
+		for i := 0; i < width[y]; i++ {
 			//rowMask.Mask[i] = false
 			delta := int(tangentRow[i])
 			wall := wallRow[i]
@@ -317,7 +339,7 @@ func (r *Room) Interior(f InteriorFunction) {
 			}
 			cursor, _, _ = cursor.Right()
 		}
-		if f(rowMask, ridRow[:width[y]+1]) == false {
+		if f(rowMask, ridRow[:width[y]]) == false {
 			break
 		}
 	}

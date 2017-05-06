@@ -5,6 +5,7 @@ import (
 	"jds/game"
 	"jds/game/layer"
 	"jds/game/world"
+	"jds/game/world/generate"
 	"jds/runstat"
 	"math/rand"
 	"os"
@@ -21,7 +22,7 @@ import (
 const (
 	WIDTH    = 800
 	HEIGHT   = 600
-	TICKRATE = 1000 // Target World ticks/second
+	TICKRATE = 10 // Target World ticks/second
 )
 
 var logstep int
@@ -185,7 +186,7 @@ type renderOverlay struct {
 }
 
 func (r *renderOverlay) ShouldRender(bid game.BlockId) bool {
-	return r.te.Overlay.Contains(bid)
+	return r.te.Overlay.InBlockstore(bid)
 }
 
 func (r *renderOverlay) RenderBlock(bid game.BlockId) {
@@ -491,9 +492,7 @@ func (te *TileEngine) Interactive() (err interface{}) {
 		mult := 1
 		//startThink := time.Now()
 		te.w.Think()
-		te.w.Think()
 		for time.Since(startFrame) < 50*time.Millisecond && mult < TICKRATE/20 {
-			te.w.Think()
 			te.w.Think()
 			mult++
 		}
@@ -543,8 +542,8 @@ func FuzzAndDebug() {
 	//logGzip := gzip.NewWriter(logFile)
 	//logEnc := gob.NewEncoder(logGzip)
 	//defer logGzip.Close()
-	w := world.NewWorld(0)
-	//w := generate.NewGridWorld(5, 5) //world.NewWorld(0) //world.STRICT_FSCK_EVERY_OP)
+	//w := world.NewWorld(0)
+	w := generate.NewGridWorld(50, 50) //world.NewWorld(0) //world.STRICT_FSCK_EVERY_OP)
 	te, err := NewTileEngine("tileset.png", w, WIDTH, HEIGHT)
 	rand.Seed(int64(time.Now().Nanosecond()))
 	if err != nil {

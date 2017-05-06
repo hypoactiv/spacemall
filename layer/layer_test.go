@@ -3,8 +3,33 @@ package layer
 import (
 	"jds/game"
 	"math/rand"
+	"sync"
 	"testing"
 )
+
+func BenchmarkAllocateBlock(b *testing.B) {
+	wg := sync.WaitGroup{}
+	N := b.N
+	M := 4
+	workerLoad := 50
+	wg.Add(M)
+	for j := 0; j < M; j++ {
+		go func(num, runs int) {
+			s := make([]*layerBlock, 0)
+			for k := 0; k < runs; k++ {
+				for i := 0; i < num; i++ {
+					s = append(s, allocateBlock())
+				}
+				for i := range s {
+					releaseBlock(s[i])
+				}
+				s = s[:0]
+			}
+			wg.Done()
+		}(workerLoad, N/(workerLoad*M))
+	}
+	wg.Wait()
+}
 
 func TestSetAndGet(t *testing.T) {
 	cursor := game.Location{}
@@ -235,7 +260,7 @@ func TestCollectRowMask(t *testing.T) {
 	N := 1000
 	l := NewLayer()
 	cursor := game.Location{}
-	rm := game.NewRowMask(N, cursor)
+	rm := game.NewRowMask(N)
 	for i := 0; i < N; i++ {
 		if i%10 == 0 {
 			l.Set(cursor, game.TileId(i))
@@ -265,7 +290,7 @@ func TestCollectRowMask(t *testing.T) {
 func TestSetRowMask(t *testing.T) {
 	N := 100
 	cursor := game.Location{}
-	rm := game.NewRowMask(N, cursor)
+	rm := game.NewRowMask(N)
 	truth := make([]bool, N)
 	for i := range truth {
 		if rand.Intn(2) == 1 {
