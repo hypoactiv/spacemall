@@ -58,3 +58,12 @@ func (t *RandomWalker) Act(ta *world.ActionAccumulator) {
 	t.l, _ = t.w.StepEntity(t.id, t, t.sc, randomTable[numSteps%100])
 	ta.Add(t.w.Now()+1, t.Act, t.l.BlockId)
 }
+
+func (t *RandomWalker) Color() game.Color {
+	return game.Color{
+		R: 255,
+		G: 255,
+		B: 255,
+		A: 255,
+	}
+}

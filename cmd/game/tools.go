@@ -9,33 +9,38 @@ import (
 	"jds/game/world"
 	"jds/game/world/path"
 	"math/rand"
-
-	"github.com/veandco/go-sdl2/sdl"
 )
 
-var colorBlue = sdl.Color{
+var colorBlue = game.Color{
 	R: 0,
 	G: 0,
 	B: 255,
-	A: 128,
+	A: 255,
 }
 
-var colorGreen = sdl.Color{
+var colorGreen = game.Color{
 	R: 0,
 	G: 255,
 	B: 0,
-	A: 128,
+	A: 255,
 }
 
-var colorRed = sdl.Color{
+var colorRed = game.Color{
 	R: 255,
 	G: 0,
 	B: 0,
-	A: 128,
+	A: 255,
+}
+
+var colorWhite = game.Color{
+	R: 255,
+	G: 255,
+	B: 255,
+	A: 255,
 }
 
 type Tool interface {
-	Preview(l game.Location) (<-chan game.Location, sdl.Color)
+	Preview(l game.Location) (<-chan game.Location, game.Color)
 	Click(l game.Location) game.ModMap
 	RightClick(l game.Location) game.ModMap
 }
@@ -96,7 +101,7 @@ func NewPointTool(w *world.World) Tool {
 	}
 }
 
-func (p PointTool) Preview(l game.Location) (<-chan game.Location, sdl.Color) {
+func (p PointTool) Preview(l game.Location) (<-chan game.Location, game.Color) {
 	c := make(chan game.Location, 1)
 	c <- l
 	close(c)
@@ -144,7 +149,7 @@ func NewBoxTool(w *world.World) Tool {
 	}
 }
 
-func (b *TwoPointTool) Preview(l game.Location) (<-chan game.Location, sdl.Color) {
+func (b *TwoPointTool) Preview(l game.Location) (<-chan game.Location, game.Color) {
 	if b.step == 0 {
 		c := make(chan game.Location, 1)
 		c <- l
@@ -188,7 +193,7 @@ func NewPlaceDoorTool(w *world.World) Tool {
 	}
 }
 
-func (t PlaceDoorTool) Preview(l game.Location) (<-chan game.Location, sdl.Color) {
+func (t PlaceDoorTool) Preview(l game.Location) (<-chan game.Location, game.Color) {
 	testDoor := func(l game.Location) bool {
 		return t.w.CanPlaceDoor(l, world.VERT) || t.w.CanPlaceDoor(l, world.HORZ)
 	}
@@ -236,7 +241,7 @@ func NewDeleteTool(w *world.World) Tool {
 	}
 }
 
-func (t DeleteTool) Preview(l game.Location) (<-chan game.Location, sdl.Color) {
+func (t DeleteTool) Preview(l game.Location) (<-chan game.Location, game.Color) {
 	c := make(chan game.Location, 1)
 	c <- l
 	close(c)
@@ -264,7 +269,7 @@ func NewTreeDebugTool(w *world.World) Tool {
 	}
 }
 
-func (t TreeDebugTool) Preview(l game.Location) (<-chan game.Location, sdl.Color) {
+func (t TreeDebugTool) Preview(l game.Location) (<-chan game.Location, game.Color) {
 	c := make(chan game.Location)
 	go func() {
 		defer close(c)
@@ -315,7 +320,7 @@ func NewRouteDebugTool(w *world.World) Tool {
 	}
 }
 
-func (t *RouteDebugTool) Preview(l game.Location) (c <-chan game.Location, color sdl.Color) {
+func (t *RouteDebugTool) Preview(l game.Location) (c <-chan game.Location, color game.Color) {
 	cc := make(chan game.Location)
 	c = cc
 	r := path.NewRoute(t.w, t.a, l)
@@ -347,8 +352,9 @@ func (t *RouteDebugTool) RightClick(l game.Location) game.ModMap {
 ///////////////////////////////////////////////////////////////////////////////
 // Route Walker Tool
 type RouteWalkerTool struct {
-	a game.Location
-	w *world.World
+	a     game.Location
+	w     *world.World
+	color game.Color
 }
 
 func NewRouteWalkerTool(w *world.World) Tool {
@@ -357,7 +363,7 @@ func NewRouteWalkerTool(w *world.World) Tool {
 	}
 }
 
-func (t *RouteWalkerTool) Preview(l game.Location) (c <-chan game.Location, color sdl.Color) {
+func (t *RouteWalkerTool) Preview(l game.Location) (c <-chan game.Location, color game.Color) {
 	cc := make(chan game.Location)
 	c = cc
 	r := path.NewRoute(t.w, t.a, l)
@@ -376,9 +382,8 @@ func (t *RouteWalkerTool) Preview(l game.Location) (c <-chan game.Location, colo
 }
 
 func (t *RouteWalkerTool) Click(l game.Location) game.ModMap {
-	fmt.Println(t.a)
 	t.a = l
-	fmt.Println(t.a)
+	t.color = game.RandomColor()
 	return nil
 }
 
@@ -395,7 +400,7 @@ func (t *RouteWalkerTool) RightClick(l game.Location) game.ModMap {
 			// only spawn in room 'rid'
 			continue
 		}
-		t.w.Spawn(entity.NewRouteWalker(l, t.a))
+		t.w.Spawn(entity.NewRouteWalker(l, t.a, t.color))
 	}
 	return nil
 }
@@ -413,7 +418,7 @@ func NewConwayTool(w *world.World) Tool {
 	}
 }
 
-func (t *ConwayTool) Preview(l game.Location) (c <-chan game.Location, color sdl.Color) {
+func (t *ConwayTool) Preview(l game.Location) (c <-chan game.Location, color game.Color) {
 	cc := make(chan game.Location)
 	close(cc)
 	c = cc

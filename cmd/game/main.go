@@ -94,7 +94,7 @@ type TileEngine struct {
 	background   *RenderLayer
 	overlay      *RenderLayer
 	layerError   *RenderLayer
-	overlayColor sdl.Color
+	overlayColor game.Color
 	Overlay      *layer.Layer
 	// Layers to be drawn
 	layers []*RenderLayer
@@ -114,8 +114,8 @@ func NewTileEngine(tileset string, W *world.World, w, h uint) (te *TileEngine, e
 		winw:         w,
 		winh:         h,
 		Overlay:      layer.NewLayer(),
-		overlayColor: sdl.Color{255, 0, 0, 128},
-		Scale:        0.2,
+		overlayColor: colorRed,
+		Scale:        0.5,
 	}
 	te.background = te.NewRenderLayer(&renderBackground{te})
 	te.overlay = te.NewRenderLayer(&renderOverlay{te})
@@ -159,9 +159,19 @@ func (te *TileEngine) Render() {
 		if x < 0 || y < 0 || x >= WIDTH || y >= HEIGHT {
 			continue
 		}
-		te.T.Draw(te.R, 30, x, y, nil, te.Scale)
+		ec := toSDLColor(e.Color())
+		te.T.Draw(te.R, 30, x, y, &ec, te.Scale)
 	}
 	te.R.Present()
+}
+
+func toSDLColor(c game.Color) sdl.Color {
+	return sdl.Color{
+		R: c.R,
+		G: c.G,
+		B: c.B,
+		A: c.A,
+	}
 }
 
 func (te *TileEngine) SetTopLeft(tl game.Location) {

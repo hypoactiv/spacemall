@@ -102,3 +102,12 @@ func (t *ConwayCell) Act(ta *world.ActionAccumulator) {
 		}
 	}
 }
+
+func (t *ConwayCell) Color() game.Color {
+	return game.Color{
+		R: 255,
+		G: 255,
+		B: 255,
+		A: 255,
+	}
+}

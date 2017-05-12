@@ -53,6 +53,7 @@ type RouteWalker struct {
 	routeStep   int
 	plan        Plan
 	planSet     bool // plan has been set in intention layer
+	color       game.Color
 }
 
 const (
@@ -61,11 +62,12 @@ const (
 	intentionIndex = 2
 )
 
-func NewRouteWalker(l game.Location, dest game.Location) *RouteWalker {
+func NewRouteWalker(l game.Location, dest game.Location, color game.Color) *RouteWalker {
 	return &RouteWalker{
 		l:     l,
 		dest:  dest,
 		speed: rand.Float64()*0.8 + 0.2,
+		color: color,
 	}
 }
 
@@ -304,7 +306,7 @@ func (t *RouteWalker) Act(ta *world.ActionAccumulator) {
 	if !viable {
 		// TODO there is, or will be, some forced collision. what should be done?
 		//fmt.Println("no viable path!")
-		ta.Add(game.Tick(now)+1+game.Tick(rand.Intn(3)), t.Act, t.l.BlockId)
+		ta.Add(game.Tick(now)+1, t.Act, t.l.BlockId)
 		return
 	}
 	// TODO remove sanity check
@@ -388,4 +390,8 @@ func (t *RouteWalker) Act(ta *world.ActionAccumulator) {
 		// reached destination
 		t.die(ta)
 	}
+}
+
+func (t *RouteWalker) Color() game.Color {
+	return t.color
 }

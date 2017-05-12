@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"math/rand"
 )
 
 type Tick int
@@ -485,5 +486,18 @@ func (a Location) Towards(b Location) Direction {
 		return LEFT
 	default:
 		return NONE
+	}
+}
+
+type Color struct {
+	R, G, B, A uint8
+}
+
+func RandomColor() Color {
+	return Color{
+		R: uint8(rand.Intn(255)),
+		G: uint8(rand.Intn(255)),
+		B: uint8(rand.Intn(255)),
+		A: 255,
 	}
 }

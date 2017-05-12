@@ -23,4 +23,6 @@ type Entity interface {
 	Touched(otherEid EntityId, d game.Direction)
 	// E attempted to move to the wall in direction 'd'
 	HitWall(d game.Direction)
+	//
+	Color() game.Color
 }
